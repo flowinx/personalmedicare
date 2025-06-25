@@ -1,22 +1,27 @@
 {
   "expo": {
-    "name": "GlassCare",
-    "slug": "GlassCare",
+    "name": "PersonalMediCare",
+    "slug": "PersonalMediCare",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "glasscare",
+    "scheme": "personalmedicare",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.PersonalMediCare",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Este app precisa acessar suas fotos para permitir que você escolha uma imagem de perfil."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.anonymous.PersonalMediCare"
     },
     "web": {
       "bundler": "metro",
@@ -33,10 +38,16 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-sqlite",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "GROQ_API_KEY": "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",
+      "GROQ_API_URL": "https://api.groq.com/openai/v1/chat/completions"
     }
   }
 }
