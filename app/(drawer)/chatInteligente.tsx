@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, FlatList, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
+import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 import { askGroqChat } from '../../services/groq';
 
 const FAQS = [
@@ -22,25 +24,35 @@ function MessageBubble({ item }: { item: any }) {
     }).start();
   }, []);
   const isUser = item.from === 'user';
+  
   return (
-    <Animated.View style={[styles.bubble, isUser ? styles.userBubble : styles.iaBubble, { opacity: fadeAnim }]}> 
-      <Text style={[styles.bubbleText, isUser && { color: '#fff' }]}>{item.text}</Text>
-      <Text style={styles.bubbleTime}>{item.time}</Text>
+    <Animated.View style={[
+      styles.messageBubble,
+      isUser ? styles.userMessage : styles.botMessage,
+      { opacity: fadeAnim }
+    ]}>
+      <ThemedText style={[
+        styles.messageText,
+        isUser ? styles.userMessageText : styles.botMessageText
+      ]}>
+        {item.text}
+      </ThemedText>
+      <ThemedText style={styles.messageTime}>{item.time}</ThemedText>
     </Animated.View>
   );
 }
 
 export default function ChatInteligenteScreen() {
-  const [messages, setMessages] = useState([
-    {
-      from: 'ia',
-      text: 'Como posso ajudá-lo?',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-    }
-  ]);
+  const router = useRouter();
+  const [messages, setMessages] = useState<{ from: string; text: string; time: string }[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
+
+  useEffect(() => {
+    startAnimation();
+  }, [startAnimation]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
@@ -59,7 +71,6 @@ export default function ChatInteligenteScreen() {
       setTimeout(() => {
         if (flatListRef.current) {
           flatListRef.current.scrollToEnd({ animated: true });
-          flatListRef.current.scrollToIndex({ index: messages.length, animated: true, viewPosition: 0 });
         }
       }, 100);
     } catch (e: any) {
@@ -72,69 +83,78 @@ export default function ChatInteligenteScreen() {
     }
   };
 
+  // Scroll para o final quando novas mensagens são adicionadas
+  useEffect(() => {
+    if (flatListRef.current && messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages]);
+
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText style={styles.title}>Chat Inteligente</ThemedText>
-      <ThemedText style={styles.subtitle}>Faça perguntas sobre saúde e medicamentos</ThemedText>
-      
-      <View style={styles.faqContainer}>
-        <ThemedText style={styles.faqTitle} lightColor="#2d1155" darkColor="#2d1155">Perguntas frequentes:</ThemedText>
-        <View style={styles.faqList}>
-          {FAQS.map(faq => (
-            <TouchableOpacity key={faq.text} style={styles.faqButton} onPress={() => sendMessage(faq.text)}>
-              <Ionicons name={faq.icon as any} size={18} color="#b081ee" style={{ marginRight: 6 }} />
-              <ThemedText style={styles.faqButtonText} lightColor="#2d1155" darkColor="#2d1155">{faq.text}</ThemedText>
-            </TouchableOpacity>
-          ))}
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <ThemedView style={styles.container}>
+        <View style={styles.faqContainer}>
+          <ThemedText style={styles.faqTitle} lightColor="#2d1155" darkColor="#2d1155">Perguntas frequentes:</ThemedText>
+          <View style={styles.faqList}>
+            {FAQS.map(faq => (
+              <TouchableOpacity key={faq.text} style={styles.faqButton} onPress={() => sendMessage(faq.text)}>
+                <Ionicons name={faq.icon as any} size={18} color="#b081ee" style={{ marginRight: 6 }} />
+                <ThemedText style={styles.faqButtonText} lightColor="#2d1155" darkColor="#2d1155">{faq.text}</ThemedText>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
-      </View>
-      
-      <View style={styles.chatContainer}>
-        <FlatList
-          data={messages}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item }) => (
-            <View style={[
-              styles.messageContainer,
-              item.from === 'user' ? styles.userMessage : styles.botMessage
-            ]}>
-              <ThemedText 
-                style={styles.messageText}
-                lightColor={item.from === 'user' ? '#fff' : '#2d1155'}
-                darkColor={item.from === 'user' ? '#fff' : '#2d1155'}
-              >
-                {item.text}
-              </ThemedText>
-            </View>
-          )}
-          contentContainerStyle={styles.messagesList}
-          ref={flatListRef}
-        />
-      </View>
-      
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.textInput}
-          value={input}
-          onChangeText={setInput}
-          placeholder="Digite sua pergunta..."
-          placeholderTextColor="#999"
-          multiline
-          maxLength={500}
-        />
-        <TouchableOpacity 
-          style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]} 
-          onPress={() => sendMessage(input)}
-          disabled={!input.trim() || loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <Ionicons name="send" size={20} color="white" />
-          )}
-        </TouchableOpacity>
-      </View>
-    </ThemedView>
+        
+        <View style={styles.chatContainer}>
+          <FlatList
+            data={messages}
+            keyExtractor={(item, index) => index.toString()}
+            renderItem={({ item }) => (
+              <MessageBubble item={item} />
+            )}
+            contentContainerStyle={styles.messagesList}
+            ref={flatListRef}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+        
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.textInput}
+            value={input}
+            onChangeText={setInput}
+            placeholder="Digite sua pergunta..."
+            placeholderTextColor="#999"
+            multiline
+            maxLength={500}
+            onFocus={() => {
+              setTimeout(() => {
+                flatListRef.current?.scrollToEnd({ animated: true });
+              }, 300);
+            }}
+          />
+          <TouchableOpacity 
+            style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]} 
+            onPress={() => sendMessage(input)}
+            disabled={!input.trim() || loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Ionicons name="send" size={20} color="white" />
+            )}
+          </TouchableOpacity>
+        </View>
+      </ThemedView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -142,17 +162,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 20,
+    paddingBottom: 10, // Reduzir padding bottom para dar mais espaço
   },
   bubble: {
     maxWidth: '95%',
@@ -231,13 +241,7 @@ const styles = StyleSheet.create({
     color: '#2d1155',
     marginRight: 8,
   },
-  sendButton: {
-    backgroundColor: '#b081ee',
-    borderRadius: 10,
-    padding: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+
   infoText: {
     color: '#b081ee',
     fontSize: 13,
@@ -250,6 +254,7 @@ const styles = StyleSheet.create({
   },
   chatContainer: {
     flex: 1,
+    marginBottom: 10, // Adicionar margem para separar do input
   },
   messageContainer: {
     padding: 10,
@@ -284,13 +289,14 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   botMessageText: {
-    lightColor: '#2d1155',
-    darkColor: '#2d1155',
+    color: '#2d1155',
   },
   inputContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end', // Alinhar ao final para melhor comportamento com multiline
     padding: 10,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 10, // Mais padding no iOS
+    backgroundColor: 'transparent',
   },
   textInput: {
     flex: 1,
@@ -303,11 +309,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#2d1155',
     marginRight: 8,
+    maxHeight: 100, // Limitar altura máxima
+    minHeight: 40, // Altura mínima
+  },
+  sendButton: {
+    backgroundColor: '#b081ee',
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40, // Garantir altura mínima
   },
   sendButtonDisabled: {
     backgroundColor: '#ccc',
   },
   messagesList: {
     paddingVertical: 10,
+    paddingBottom: 20, // Mais espaço no final da lista
+  },
+  messageBubble: {
+    maxWidth: '95%',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: '#f5f5f5',
+    shadowColor: '#b081ee',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  messageTime: {
+    color: '#b081ee',
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'right',
   },
 }); 

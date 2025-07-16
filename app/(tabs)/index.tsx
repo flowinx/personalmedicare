@@ -1,27 +1,58 @@
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect } from 'react';
+import { Animated, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { AnimatedButton } from '../../components/AnimatedButton';
+import { AnimatedCard } from '../../components/AnimatedCard';
+import { useEntranceAnimation } from '../../utils/animations';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
+
+  useEffect(() => {
+    startAnimation();
+  }, [startAnimation]);
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
+      {/* Header Animado */}
+      <Animated.View 
+        style={[
+          styles.header,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
         <View style={styles.userInfo}>
-          <Image
-            source={{ uri: 'https://i.pravatar.cc/100' }}
-            style={styles.avatar}
-          />
+          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+            <Image
+              source={{ uri: 'https://i.pravatar.cc/100' }}
+              style={styles.avatar}
+            />
+          </Animated.View>
           <View>
             <Text style={styles.greeting}>Olá, Marcos!</Text>
             <Text style={styles.subGreeting}>Como você está hoje?</Text>
           </View>
         </View>
-        <Ionicons name="notifications-outline" size={28} color="#555" />
-      </View>
+        <TouchableOpacity style={styles.notificationButton}>
+          <Ionicons name="notifications-outline" size={28} color="#555" />
+        </TouchableOpacity>
+      </Animated.View>
 
-      <View style={styles.searchContainer}>
+      {/* Barra de Pesquisa Animada */}
+      <Animated.View 
+        style={[
+          styles.searchContainer,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
         <View style={styles.searchBar}>
           <FontAwesome name="search" size={20} color="#8A8A8A" />
           <TextInput
@@ -30,94 +61,145 @@ export default function HomeScreen() {
             placeholderTextColor="#8A8A8A"
           />
         </View>
-        <TouchableOpacity style={styles.filterButton}>
-             <Ionicons name="options-outline" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
+        <AnimatedButton
+          title=""
+          onPress={() => {}}
+          variant="primary"
+          size="small"
+          icon={<Ionicons name="options-outline" size={20} color="white" />}
+          style={styles.filterButton}
+        />
+      </Animated.View>
 
       {/* Seção Menu Principal */}
-      <View style={styles.sectionHeader}>
+      <Animated.View 
+        style={[
+          styles.sectionHeader,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
         <Text style={styles.sectionTitle}>Menu Principal</Text>
-      </View>
+      </Animated.View>
+      
       <View style={styles.menuContainer}>
-        <Pressable
+        <AnimatedCard
+          delay={100}
           onPress={() => router.push('/(tabs)/addMember')}
-          style={({ pressed }) => [
-              styles.menuItem,
-              { backgroundColor: '#E6E0FF' },
-              pressed && { opacity: 0.7 }
-            ]}>
+          style={styles.menuCard}
+        >
+          <View style={styles.menuItem}>
             <FontAwesome name="user-plus" size={28} color="#8A7DFF" />
             <Text style={styles.menuItemText}>Cadastrar Membro</Text>
-        </Pressable>
-        <Pressable style={({ pressed }) => [
-            styles.menuItem,
-            { backgroundColor: '#D4F5E1' },
-            pressed && { opacity: 0.7 }
-          ]}>
-          <FontAwesome name="plus-square" size={28} color="#34C759" />
-          <Text style={styles.menuItemText}>Novo Tratamento</Text>
-        </Pressable>
+          </View>
+        </AnimatedCard>
+        
+        <AnimatedCard
+          delay={200}
+          onPress={() => router.push('/(drawer)/addTreatment')}
+          style={styles.menuCard}
+        >
+          <View style={styles.menuItem}>
+            <FontAwesome name="plus-square" size={28} color="#34C759" />
+            <Text style={styles.menuItemText}>Novo Tratamento</Text>
+          </View>
+        </AnimatedCard>
       </View>
 
       {/* Seção Tratamentos Ativos */}
-      <View style={styles.sectionHeader}>
+      <Animated.View 
+        style={[
+          styles.sectionHeader,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
         <Text style={styles.sectionTitle}>Tratamentos Ativos</Text>
         <TouchableOpacity>
           <Text style={styles.seeAll}>Ver Todos</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
+      
       <View style={styles.treatmentList}>
-        <View style={styles.treatmentItem}>
-          <View style={styles.treatmentIcon}>
-            <FontAwesome name="medkit" size={20} color="#b081ee" />
+        <AnimatedCard delay={300} style={styles.treatmentCard}>
+          <View style={styles.treatmentItem}>
+            <View style={styles.treatmentIcon}>
+              <FontAwesome name="medkit" size={20} color="#b081ee" />
+            </View>
+            <View>
+              <Text style={styles.treatmentName}>Amoxicilina - João Silva</Text>
+              <Text style={styles.treatmentTime}>Próxima dose: Hoje às 14:00</Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.treatmentName}>Amoxicilina - João Silva</Text>
-            <Text style={styles.treatmentTime}>Próxima dose: Hoje às 14:00</Text>
+        </AnimatedCard>
+        
+        <AnimatedCard delay={400} style={styles.treatmentCard}>
+          <View style={styles.treatmentItem}>
+            <View style={styles.treatmentIcon}>
+               <FontAwesome name="medkit" size={20} color="#34C759" />
+            </View>
+            <View>
+              <Text style={styles.treatmentName}>Vitamina D - Maria Silva</Text>
+              <Text style={styles.treatmentTime}>Próxima dose: Amanhã às 09:00</Text>
+            </View>
           </View>
-        </View>
-        <View style={styles.treatmentItem}>
-          <View style={styles.treatmentIcon}>
-             <FontAwesome name="medkit" size={20} color="#34C759" />
-          </View>
-          <View>
-            <Text style={styles.treatmentName}>Vitamina D - Maria Silva</Text>
-            <Text style={styles.treatmentTime}>Próxima dose: Amanhã às 09:00</Text>
-          </View>
-        </View>
+        </AnimatedCard>
       </View>
 
       {/* Seção Membros da Família */}
-      <View style={[styles.sectionHeader, {marginTop: 20}]}>
+      <Animated.View 
+        style={[
+          styles.sectionHeader,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
         <Text style={styles.sectionTitle}>Membros da Família</Text>
         <TouchableOpacity>
           <Text style={styles.seeAll}>Ver Todos</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       <View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {/* Card de Membro da Família */}
-          <Pressable onPress={() => router.push('/(tabs)/memberDetail')} style={({ pressed }) => [styles.memberCard, {backgroundColor: '#E6E0FF'}, pressed && { opacity: 0.8 }]}>
+          <AnimatedCard
+            delay={500}
+            onPress={() => router.push('/(tabs)/memberDetail')}
+            style={styles.memberCard}
+            backgroundColor="#E6E0FF"
+          >
             <Image source={{ uri: 'https://i.pravatar.cc/150?u=pai' }} style={styles.memberAvatar} />
             <Text style={styles.memberName}>João Silva</Text>
             <Text style={styles.memberRelation}>Pai</Text>
-          </Pressable>
+          </AnimatedCard>
           
-          {/* Card de Membro da Família */}
-          <Pressable onPress={() => router.push('/(tabs)/memberDetail')} style={({ pressed }) => [styles.memberCard, {backgroundColor: '#FFE0E0'}, pressed && { opacity: 0.8 }]}>
+          <AnimatedCard
+            delay={600}
+            onPress={() => router.push('/(tabs)/memberDetail')}
+            style={styles.memberCard}
+            backgroundColor="#FFE0E0"
+          >
             <Image source={{ uri: 'https://i.pravatar.cc/150?u=mae' }} style={styles.memberAvatar} />
             <Text style={styles.memberName}>Maria Silva</Text>
             <Text style={styles.memberRelation}>Mãe</Text>
-          </Pressable>
+          </AnimatedCard>
 
-          {/* Card de Membro da Família */}
-          <Pressable onPress={() => router.push('/(tabs)/memberDetail')} style={({ pressed }) => [styles.memberCard, {backgroundColor: '#D4F5E1'}, pressed && { opacity: 0.8 }]}>
+          <AnimatedCard
+            delay={700}
+            onPress={() => router.push('/(tabs)/memberDetail')}
+            style={styles.memberCard}
+            backgroundColor="#D4F5E1"
+          >
             <Image source={{ uri: 'https://i.pravatar.cc/150?u=filho' }} style={styles.memberAvatar} />
             <Text style={styles.memberName}>Lucas Silva</Text>
             <Text style={styles.memberRelation}>Filho</Text>
-          </Pressable>
+          </AnimatedCard>
         </ScrollView>
       </View>
 
@@ -147,6 +229,8 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     marginRight: 15,
+    borderWidth: 2,
+    borderColor: '#b081ee',
   },
   greeting: {
     fontSize: 20,
@@ -156,6 +240,11 @@ const styles = StyleSheet.create({
   subGreeting: {
     fontSize: 14,
     color: '#8A8A8A',
+  },
+  notificationButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#f0eaff',
   },
   searchContainer: {
     flexDirection: 'row',
@@ -171,11 +260,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 12,
     marginRight: 10,
-    elevation: 2,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
   searchInput: {
     marginLeft: 10,
@@ -184,14 +273,9 @@ const styles = StyleSheet.create({
     color: '#333'
   },
   filterButton: {
-    backgroundColor: '#b081ee',
-    padding: 12,
+    width: 48,
+    height: 48,
     borderRadius: 15,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -209,43 +293,23 @@ const styles = StyleSheet.create({
     color: '#b081ee',
     fontWeight: 'bold',
   },
-  memberCard: {
-    width: 150,
-    borderRadius: 20,
-    padding: 15,
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  memberAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 10,
-    borderWidth: 3,
-    borderColor: 'white',
-  },
-  memberName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  memberRelation: {
-    fontSize: 14,
-    color: '#8A8A8A',
-  },
   menuContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 30,
   },
-  menuItem: {
+  menuCard: {
     flex: 1,
+    marginHorizontal: 5,
+    padding: 0,
+  },
+  menuItem: {
     borderRadius: 20,
     paddingVertical: 20,
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 5,
+    backgroundColor: 'transparent',
   },
   menuItemText: {
     marginTop: 10,
@@ -257,18 +321,16 @@ const styles = StyleSheet.create({
   treatmentList: {
     marginBottom: 20,
   },
+  treatmentCard: {
+    padding: 0,
+    marginBottom: 10,
+  },
   treatmentItem: {
-    backgroundColor: 'white',
+    backgroundColor: 'transparent',
     borderRadius: 15,
     padding: 15,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
   },
   treatmentIcon: {
     width: 40,
@@ -285,6 +347,30 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   treatmentTime: {
+    fontSize: 14,
+    color: '#8A8A8A',
+  },
+  memberCard: {
+    width: 150,
+    borderRadius: 20,
+    alignItems: 'center',
+    marginRight: 15,
+    padding: 0,
+  },
+  memberAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 10,
+    borderWidth: 3,
+    borderColor: 'white',
+  },
+  memberName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  memberRelation: {
     fontSize: 14,
     color: '#8A8A8A',
   },

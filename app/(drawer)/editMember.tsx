@@ -1,10 +1,12 @@
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { NavigationProp, useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Animated, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
+import { ThemedView } from '../../components/ThemedView';
 import { deleteMember, getMemberById, updateMember } from '../../db/members';
+import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 
 type RootStackParamList = {
   Home: undefined;
@@ -22,6 +24,12 @@ export default function EditMemberScreen() {
   const [dob, setDob] = useState('');
   const [notes, setNotes] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(false);
+  const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
+
+  useEffect(() => {
+    startAnimation();
+  }, [startAnimation]);
 
   useEffect(() => {
     if (!memberId) return;
@@ -61,19 +69,26 @@ export default function EditMemberScreen() {
     }
   };
 
-  // Função para aplicar máscara de data DD/MM/AAAA
-  function maskDate(value: string) {
-    let cleaned = value.replace(/\D/g, '');
-    let masked = '';
-    if (cleaned.length > 0) masked = cleaned.substring(0, 2);
-    if (cleaned.length >= 3) masked += '/' + cleaned.substring(2, 4);
-    if (cleaned.length >= 5) masked += '/' + cleaned.substring(4, 8);
-    return masked;
-  }
+  // Função para formatar a data automaticamente
+  const formatDate = useCallback((text: string) => {
+    // Remove todos os caracteres não numéricos
+    const numbers = text.replace(/\D/g, '');
+    
+    // Aplica a máscara DD/MM/AAAA
+    if (numbers.length <= 2) {
+      return numbers;
+    } else if (numbers.length <= 4) {
+      return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
+    } else if (numbers.length <= 8) {
+      return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4)}`;
+    }
+    return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4, 8)}`;
+  }, []);
 
-  function handleDobChange(text: string) {
-    setDob(maskDate(text));
-  }
+  const handleDateChange = useCallback((text: string) => {
+    const formatted = formatDate(text);
+    setDob(formatted);
+  }, [formatDate]);
 
   const handleUpdateMember = async () => {
     if (!name.trim()) {
@@ -87,7 +102,7 @@ export default function EditMemberScreen() {
         relation,
         dob,
         notes,
-        avatar_uri: avatarUri ? avatarUri : null
+        avatar_uri: avatarUri || undefined
       });
       Alert.alert('Sucesso', 'Membro atualizado!');
       navigation.goBack();
@@ -127,77 +142,104 @@ export default function EditMemberScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
     >
-      <ScrollView 
-        style={styles.container} 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 80 }}
-      >
-        <ThemedText style={styles.title}>Editar Membro</ThemedText>
-        
-        <TouchableOpacity style={styles.avatarContainer} onPress={pickImage}>
-          {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Ionicons name="camera" size={40} color="#b081ee" />
+      <ThemedView style={styles.container}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40, paddingTop: 20 }}
+        >
+          {/* Avatar Section */}
+          <Animated.View style={[styles.avatarSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <TouchableOpacity style={styles.avatarContainer} onPress={pickImage}>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                  <Ionicons name="camera" size={40} color="#b081ee" />
+                </View>
+              )}
+              <ThemedText style={styles.avatarText}>Adicionar Foto</ThemedText>
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Form Fields */}
+          <Animated.View style={[styles.formContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>Nome Completo</ThemedText>
+              <View style={styles.inputWrapper}>
+                <FontAwesome name="user" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Nome do membro da família"
+                  placeholderTextColor="#8A8A8A"
+                  value={name}
+                  onChangeText={setName}
+                />
+              </View>
             </View>
-          )}
-          <ThemedText style={styles.avatarText}>Adicionar Foto</ThemedText>
-        </TouchableOpacity>
 
-        <View style={styles.inputContainer}>
-          <ThemedText style={styles.label}>Nome Completo</ThemedText>
-          <TextInput
-            style={styles.input}
-            placeholder="Nome do membro da família"
-            value={name}
-            onChangeText={setName}
-          />
-        </View>
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>Parentesco</ThemedText>
+              <View style={styles.inputWrapper}>
+                <FontAwesome name="heart" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Pai, Mãe, Filho(a), etc."
+                  placeholderTextColor="#8A8A8A"
+                  value={relation}
+                  onChangeText={setRelation}
+                />
+              </View>
+            </View>
 
-        <View style={styles.inputContainer}>
-          <ThemedText style={styles.label}>Parentesco</ThemedText>
-          <TextInput
-            style={styles.input}
-            placeholder="Pai, Mãe, Filho(a), etc."
-            value={relation}
-            onChangeText={setRelation}
-          />
-        </View>
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>Data de Nascimento</ThemedText>
+              <View style={styles.inputWrapper}>
+                <FontAwesome name="calendar" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="DD/MM/AAAA"
+                  placeholderTextColor="#8A8A8A"
+                  value={dob}
+                  onChangeText={handleDateChange}
+                  keyboardType="numeric"
+                  maxLength={10}
+                />
+              </View>
+            </View>
 
-        <View style={styles.inputContainer}>
-          <ThemedText style={styles.label}>Data de Nascimento</ThemedText>
-          <TextInput
-            style={styles.input}
-            placeholder="DD/MM/AAAA"
-            value={dob}
-            onChangeText={handleDobChange}
-          />
-        </View>
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>Observações</ThemedText>
+              <View style={styles.inputWrapper}>
+                <FontAwesome name="sticky-note" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                  placeholder="Alergias, condições pré-existentes, etc."
+                  placeholderTextColor="#8A8A8A"
+                  value={notes}
+                  onChangeText={setNotes}
+                  multiline
+                />
+              </View>
+            </View>
+          </Animated.View>
 
-        <View style={styles.inputContainer}>
-          <ThemedText style={styles.label}>Observações</ThemedText>
-          <TextInput
-            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-            placeholder="Alergias, condições pré-existentes, etc."
-            value={notes}
-            onChangeText={setNotes}
-            multiline
-          />
-        </View>
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.goBack()}>
+          {/* Buttons */}
+          <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.goBack()}>
               <ThemedText style={styles.secondaryButtonText}>Cancelar</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleUpdateMember}>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleUpdateMember}>
               <ThemedText style={styles.primaryButtonText}>Salvar</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleDeleteMember} style={styles.deleteButtonInline}>
-            <ThemedText style={styles.deleteButtonText}>Excluir</ThemedText>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View style={[styles.deleteContainer, { opacity: fadeAnim }]}>
+            <TouchableOpacity onPress={handleDeleteMember} style={styles.deleteButton}>
+              <ThemedText style={styles.deleteButtonText}>Excluir Membro</ThemedText>
+            </TouchableOpacity>
+          </Animated.View>
+        </ScrollView>
+      </ThemedView>
     </KeyboardAvoidingView>
   );
 }
@@ -288,18 +330,38 @@ const styles = StyleSheet.create({
       fontWeight: 'bold',
       fontSize: 16,
   },
-  deleteButtonInline: {
-    backgroundColor: '#fff',
+  avatarSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  formContainer: {
+    width: '100%',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    paddingHorizontal: 15,
     borderWidth: 1,
-    borderColor: '#FF3B30',
+    borderColor: '#E0E0E0',
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  deleteContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  deleteButton: {
+    backgroundColor: '#FF3B30',
     borderRadius: 15,
     padding: 15,
     alignItems: 'center',
-    flex: 1,
-    marginLeft: 8,
+    width: '100%',
   },
   deleteButtonText: {
-    color: '#FF3B30',
+    color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 16,
   }

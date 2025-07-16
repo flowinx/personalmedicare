@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "PersonalMediCare",
-    "slug": "PersonalMediCare",
+    "name": "Personal Medi Care",
+    "slug": "personalmedicare",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.PersonalMediCare",
+      "bundleIdentifier": "com.anonymous.personalmedicare",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Este app precisa acessar suas fotos para permitir que você escolha uma imagem de perfil."
       }
@@ -21,7 +21,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.PersonalMediCare"
+      "package": "com.anonymous.personalmedicare"
     },
     "web": {
       "bundler": "metro",

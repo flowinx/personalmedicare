@@ -1,31 +1,34 @@
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import { NavigationProp, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
-import { useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Animated, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
-import { getDatabase } from '../../db/index';
 import { Member, getAllMembers } from '../../db/members';
+import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 import { useThemeColor } from '../../hooks/useThemeColor';
 
+type NavigationProp = {
+  navigate: (screen: keyof RootStackParamList, params?: any) => void;
+};
+
 type RootStackParamList = {
-    'Cadastrar Membro': undefined;
-    'Novo Tratamento': undefined;
-    'Tratamentos': undefined;
-    'Detalhes do Membro': { id: number };
+  'Cadastrar Membro': undefined;
+  'Novo Tratamento': undefined;
+  'Tratamentos': undefined;
+  'Detalhes do Membro': { id: number };
 };
 
 interface ScheduleItem {
-    id: number; // schedule id
-    scheduled_time: string;
-    status: 'pendente' | 'tomado';
-    treatment_id: number;
-    medication: string;
-    dosage: string;
-    member_name: string;
-    member_avatar_uri: string;
+  id: number; // schedule id
+  scheduled_time: string;
+  status: 'pendente' | 'tomado';
+  treatment_id: number;
+  medication: string;
+  dosage: string;
+  member_name: string;
+  member_avatar_uri: string;
 }
 
 interface Alert {
@@ -35,12 +38,17 @@ interface Alert {
 }
 
 export default function HomeScreen() {
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NavigationProp>();
   const [members, setMembers] = useState<Member[]>([]);
   const [todaysSchedule, setTodaysSchedule] = useState<ScheduleItem[]>([]);
   const [search, setSearch] = useState('');
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [showAlerts, setShowAlerts] = useState(false);
+  const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
+
+  useEffect(() => {
+    startAnimation();
+  }, [startAnimation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -50,21 +58,14 @@ export default function HomeScreen() {
           const allMembers = await getAllMembers();
           setMembers(allMembers);
 
-          // Fetch Today's Schedule
+          // Fetch Today's Schedule - usando o novo sistema de memória
           const today = new Date();
           const todayStart = new Date(today.setHours(0, 0, 0, 0)).toISOString();
           const todayEnd = new Date(today.setHours(23, 59, 59, 999)).toISOString();
 
-          const db = await getDatabase();
-          const scheduleItems = await db.getAllAsync<ScheduleItem>(
-            `SELECT s.id, s.scheduled_time, s.status, s.treatment_id, t.medication, t.dosage, m.name as member_name, m.avatar_uri as member_avatar_uri
-            FROM schedule s
-            JOIN treatments t ON s.treatment_id = t.id
-            JOIN members m ON t.member_id = m.id
-            WHERE s.scheduled_time >= ? AND s.scheduled_time <= ?
-            ORDER BY s.scheduled_time ASC
-          `, [todayStart, todayEnd]);
-          setTodaysSchedule(scheduleItems);
+          // Por enquanto, vamos usar uma agenda simulada até implementarmos o sistema de schedule
+          const mockScheduleItems: ScheduleItem[] = [];
+          setTodaysSchedule(mockScheduleItems);
 
         } catch (error) {
           console.error("Failed to fetch data:", error);
@@ -102,9 +103,7 @@ export default function HomeScreen() {
 
   const handleMarkAsDone = async (scheduleId: number) => {
     try {
-      const db = await getDatabase();
-      await db.runAsync('UPDATE schedule SET status = ? WHERE id = ?', 'tomado', scheduleId);
-      // Refresh schedule
+      // Por enquanto, apenas atualizamos o estado local
       setTodaysSchedule(prevSchedule => 
         prevSchedule.map(item => 
           item.id === scheduleId ? { ...item, status: 'tomado' } : item
@@ -124,7 +123,7 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={{paddingHorizontal: 20}}>
+      <Animated.View style={[styles.headerCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.header}>
           <View style={styles.userInfo}>
             <Image
@@ -146,7 +145,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.searchContainer, { marginBottom: 10 }]}> 
+        <View style={styles.searchContainer}> 
           <View style={styles.searchBar}>
             <FontAwesome name="search" size={20} color="#8A8A8A" />
             <TextInput
@@ -158,66 +157,77 @@ export default function HomeScreen() {
             />
           </View>
         </View>
-      </View>
+      </Animated.View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingHorizontal: 20}}>
-        <View style={styles.sectionHeader}>
-          <ThemedText style={styles.sectionTitle}>Agenda de Hoje</ThemedText>
-          <TouchableOpacity onPress={() => navigation.navigate('Tratamentos')}>
-            <ThemedText style={styles.seeAll}>Ver Todos</ThemedText>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.treatmentList}>
-          {filteredSchedule.length === 0 && (
-            <ThemedText style={{ textAlign: 'center', marginVertical: 10 }}>Nenhuma dose agendada para hoje.</ThemedText>
-          )}
-          {filteredSchedule.map((item) => (
-            <View key={item.id} style={[styles.treatmentItem, item.status === 'tomado' && styles.treatmentItemDone]}>
-              <Image 
-                source={{ uri: item.member_avatar_uri || `https://i.pravatar.cc/100?u=${item.member_name}` }}
-                style={styles.treatmentAvatar}
-              />
-              <View style={{ flex: 1 }}>
-                <ThemedText style={[styles.treatmentName, item.status === 'tomado' && styles.treatmentTextDone]} lightColor="#2d1155" darkColor="#2d1155">
-                  {item.medication}
-                </ThemedText>
-                <ThemedText style={[styles.treatmentTime, item.status === 'tomado' && styles.treatmentTextDone]} lightColor="#2d1155" darkColor="#2d1155">
-                  {item.dosage} • {new Date(item.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </ThemedText>
-              </View>
-              {item.status === 'pendente' && (
-                  <TouchableOpacity style={{ marginHorizontal: 8 }} onPress={() => handleMarkAsDone(item.id)}>
-                      <FontAwesome name="check-circle-o" size={24} color="#34C759" />
-                  </TouchableOpacity>
-              )}
-              {item.status === 'tomado' && (
-                  <FontAwesome name="check-circle" size={24} color="#34C759" style={{ opacity: 0.5, marginHorizontal: 8 }} />
-              )}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <Animated.View style={[styles.sectionCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="calendar-outline" size={24} color="#b081ee" style={styles.sectionIcon} />
+              <ThemedText style={styles.sectionTitle}>Agenda de Hoje</ThemedText>
             </View>
-          ))}
-        </View>
-      </ScrollView>
-
-      <View style={{paddingHorizontal: 20}}>
-        <View style={[styles.sectionHeader, {marginTop: 20}]}>
-          <ThemedText style={styles.sectionTitle}>Membros da Família</ThemedText>
-        </View>
-        <View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {members.map((member, index) => (
-              <Pressable
-                key={member.id}
-                style={({ pressed }) => [styles.memberCard, {backgroundColor: memberCardColors[index % memberCardColors.length]}, pressed && { opacity: 0.8 }]}
-                onPress={() => member.id && navigation.navigate('Detalhes do Membro', { id: member.id })}
-              >
-                <Image source={{ uri: member.avatar_uri || 'https://i.pravatar.cc/150?u=' + member.name }} style={styles.memberAvatar} />
-                <ThemedText style={styles.memberName} lightColor="#2d1155" darkColor="#2d1155">{member.name}</ThemedText>
-                <ThemedText style={styles.memberRelation} lightColor="#2d1155" darkColor="#2d1155">{member.relation}</ThemedText>
-              </Pressable>
+            <TouchableOpacity onPress={() => navigation.navigate('Tratamentos')}>
+              <ThemedText style={styles.seeAll}>Ver Todos</ThemedText>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.treatmentList}>
+            {filteredSchedule.length === 0 && (
+              <View style={styles.emptyState}>
+                <Ionicons name="checkmark-circle-outline" size={48} color="#b081ee" />
+                <ThemedText style={styles.emptyStateText}>Nenhuma dose agendada para hoje.</ThemedText>
+              </View>
+            )}
+            {filteredSchedule.map((item) => (
+              <View key={item.id} style={[styles.treatmentItem, item.status === 'tomado' && styles.treatmentItemDone]}>
+                <Image 
+                  source={{ uri: item.member_avatar_uri || `https://i.pravatar.cc/100?u=${item.member_name}` }}
+                  style={styles.treatmentAvatar}
+                />
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={[styles.treatmentName, item.status === 'tomado' && styles.treatmentTextDone]} lightColor="#2d1155" darkColor="#2d1155">
+                    {item.medication}
+                  </ThemedText>
+                  <ThemedText style={[styles.treatmentTime, item.status === 'tomado' && styles.treatmentTextDone]} lightColor="#2d1155" darkColor="#2d1155">
+                    {item.dosage} • {new Date(item.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </ThemedText>
+                </View>
+                {item.status === 'pendente' && (
+                    <TouchableOpacity style={{ marginHorizontal: 8 }} onPress={() => handleMarkAsDone(item.id)}>
+                        <FontAwesome name="check-circle-o" size={24} color="#34C759" />
+                    </TouchableOpacity>
+                )}
+                {item.status === 'tomado' && (
+                    <FontAwesome name="check-circle" size={24} color="#34C759" style={{ opacity: 0.5, marginHorizontal: 8 }} />
+                )}
+              </View>
             ))}
-          </ScrollView>
-        </View>
-      </View>
+          </View>
+        </Animated.View>
+
+        <Animated.View style={[styles.sectionCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="people-outline" size={24} color="#b081ee" style={styles.sectionIcon} />
+              <ThemedText style={styles.sectionTitle}>Membros da Família</ThemedText>
+            </View>
+          </View>
+          <View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {members.map((member, index) => (
+                <Pressable
+                  key={member.id}
+                  style={({ pressed }) => [styles.memberCard, {backgroundColor: memberCardColors[index % memberCardColors.length]}, pressed && { opacity: 0.8 }]}
+                  onPress={() => member.id && navigation.navigate('Detalhes do Membro', { id: member.id })}
+                >
+                  <Image source={{ uri: member.avatar_uri || 'https://i.pravatar.cc/150?u=' + member.name }} style={styles.memberAvatar} />
+                  <ThemedText style={styles.memberName} lightColor="#2d1155" darkColor="#2d1155">{member.name}</ThemedText>
+                  <ThemedText style={styles.memberRelation} lightColor="#2d1155" darkColor="#2d1155">{member.relation}</ThemedText>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </Animated.View>
+      </ScrollView>
 
       {/* Modal de Alertas */}
       <Modal visible={showAlerts} animationType="slide" transparent onRequestClose={() => setShowAlerts(false)}>
@@ -227,16 +237,24 @@ export default function HomeScreen() {
             {alerts.length === 0 && <ThemedText style={{ color: '#888' }}>Nenhum alerta no momento.</ThemedText>}
             {alerts.map(alerta => (
               <View key={alerta.id} style={{ marginBottom: 10 }}>
-                <ThemedText style={{ color: alerta.lido ? '#aaa' : '#b081ee', fontWeight: alerta.lido ? 'normal' : 'bold' }}>{alerta.mensagem}</ThemedText>
+                <ThemedText style={{ fontSize: 14 }}>{alerta.mensagem}</ThemedText>
               </View>
             ))}
-            <TouchableOpacity style={{ marginTop: 16, alignSelf: 'flex-end' }} onPress={() => { setShowAlerts(false); setAlerts(alerts.map(a => ({ ...a, lido: true }))); }}>
-              <ThemedText style={{ color: '#b081ee', fontWeight: 'bold' }}>Fechar</ThemedText>
+            <TouchableOpacity 
+              style={{ 
+                backgroundColor: '#b081ee', 
+                padding: 12, 
+                borderRadius: 8, 
+                marginTop: 16,
+                alignItems: 'center'
+              }} 
+              onPress={() => setShowAlerts(false)}
+            >
+              <ThemedText style={{ color: 'white', fontWeight: 'bold' }}>Fechar</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-
     </ThemedView>
   );
 }
@@ -245,6 +263,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 60,
+  },
+  headerCard: {
+    backgroundColor: 'white',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 16,
+    padding: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
   header: {
     flexDirection: 'row',
@@ -265,29 +295,26 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: '#2d1155',
   },
   subGreeting: {
     fontSize: 14,
+    color: '#666',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
   },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f8f9fa',
     borderRadius: 15,
     paddingHorizontal: 15,
     paddingVertical: 12,
-    marginRight: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
   searchInput: {
     marginLeft: 10,
@@ -295,19 +322,52 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#333'
   },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  sectionCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 15,
   },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sectionIcon: {
+    marginRight: 8,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#2d1155',
   },
   seeAll: {
     fontSize: 14,
     fontWeight: 'bold',
+    color: '#b081ee',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  emptyStateText: {
+    marginTop: 8,
+    color: '#666',
+    fontSize: 16,
   },
   memberCard: {
     width: 120,
@@ -336,15 +396,12 @@ const styles = StyleSheet.create({
   treatmentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: '#f8f9fa',
     padding: 15,
     borderRadius: 15,
     marginBottom: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
   treatmentAvatar: {
     width: 40,

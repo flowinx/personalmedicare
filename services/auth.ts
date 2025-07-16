@@ -1,5 +1,4 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
-import * as AuthSession from 'expo-auth-session';
 
 // Altere para a URL real do seu backend
 const BACKEND_URL = 'https://glasscare.lexbix.com:3001';
@@ -21,20 +20,9 @@ export async function requestPasswordReset(email: string): Promise<void> {
 const GOOGLE_CLIENT_ID = 'SUA_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 
 export async function signInWithGoogle() {
-  const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
-  const result = await AuthSession.startAsync({
-    authUrl:
-      `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${GOOGLE_CLIENT_ID}` +
-      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&response_type=token` +
-      `&scope=profile%20email`,
-  });
-  if (result.type !== 'success' || !result.params.access_token) {
-    throw new Error('Login Google cancelado ou falhou.');
-  }
-  // Envie o token para o backend se necessário
-  return result.params;
+  // Implementação simplificada - você precisará implementar a autenticação Google
+  // usando um hook em um componente React ou uma biblioteca específica
+  throw new Error('Autenticação Google não implementada ainda.');
 }
 
 // ----------- APPLE -----------

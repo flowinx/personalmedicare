@@ -1,126 +1,176 @@
-import { Link } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Image, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { signInWithApple, signInWithGoogle } from '../../services/auth';
+import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Animated, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { AnimatedButton } from '../../components/AnimatedButton';
+import { AnimatedCard } from '../../components/AnimatedCard';
+import { useEntranceAnimation } from '../../utils/animations';
 
 export default function LoginScreen() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loadingGoogle, setLoadingGoogle] = useState(false);
-  const [loadingApple, setLoadingApple] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
 
-  const handleLogin = () => {
-    // Por enquanto, apenas exibimos um alerta com os dados
-    Alert.alert('Login Info', `Email: ${email}\nPassword: ${password}`);
+  useEffect(() => {
+    startAnimation();
+  }, [startAnimation]);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      return;
+    }
+
+    setIsLoading(true);
+    
+    // Simular login
+    setTimeout(() => {
+      setIsLoading(false);
+      router.replace('/(tabs)');
+    }, 2000);
   };
 
-  const handleGoogleLogin = async () => {
-    setLoadingGoogle(true);
-    try {
-      const result = await signInWithGoogle();
-      // Aqui você pode enviar o token para o backend e navegar/logar o usuário
-      Alert.alert('Login Google', JSON.stringify(result));
-    } catch (e: any) {
-      Alert.alert('Erro', e.message || 'Erro ao fazer login com Google.');
-    } finally {
-      setLoadingGoogle(false);
-    }
-  };
-
-  const handleAppleLogin = async () => {
-    setLoadingApple(true);
-    try {
-      const result = await signInWithApple();
-      // Aqui você pode enviar o token para o backend e navegar/logar o usuário
-      Alert.alert('Login Apple', JSON.stringify(result));
-    } catch (e: any) {
-      Alert.alert('Erro', e.message || 'Erro ao fazer login com Apple.');
-    } finally {
-      setLoadingApple(false);
-    }
+  const handleGoogleLogin = () => {
+    // Implementar login com Google
+    console.log('Google login');
   };
 
   return (
-    <View style={styles.container}>
-      <Image source={require('@/assets/images/logo.png')} style={styles.logo} />
-      <Text style={styles.title}>PersonalMediCare</Text>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Endereço de e-mail</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="seuemail@exemplo.com"
-          placeholderTextColor="#BDBDBD"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <Animated.View
+        style={[
+          styles.logoContainer,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      >
+        <Image
+          source={require('../../assets/images/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
         />
-      </View>
+        <Animated.Text
+          style={[
+            styles.title,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          Personal Medi Care
+        </Animated.Text>
+      </Animated.View>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Senha</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="********"
-          placeholderTextColor="#BDBDBD"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
+      <AnimatedCard
+        delay={200}
+        style={styles.formContainer}
+        backgroundColor="transparent"
+        elevation={0}
+      >
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Email</Text>
+          <View style={styles.inputWrapper}>
+            <FontAwesome name="envelope" size={20} color="#8A8A8A" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Digite seu email"
+              placeholderTextColor="#8A8A8A"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+        </View>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Senha</Text>
+          <View style={styles.inputWrapper}>
+            <FontAwesome name="lock" size={20} color="#8A8A8A" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Digite sua senha"
+              placeholderTextColor="#8A8A8A"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+          </View>
+        </View>
+
+        <TouchableOpacity style={styles.forgotPassword}>
+          <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
+        </TouchableOpacity>
+
+        <AnimatedButton
+          title="Entrar"
+          onPress={handleLogin}
+          variant="primary"
+          size="large"
+          loading={isLoading}
+          style={styles.loginButton}
         />
-        <Link href="/(auth)/forgotPassword" asChild>
-            <TouchableOpacity>
-                <Text style={styles.forgotPassword}>Esqueceu a senha?</Text>
-            </TouchableOpacity>
-        </Link>
-      </View>
 
-      <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-        <Text style={styles.loginButtonText}>Entrar</Text>
-      </TouchableOpacity>
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.orText}>ou</Text>
+          <View style={styles.dividerLine} />
+        </View>
 
-      <Text style={styles.orText}>Ou</Text>
+        <AnimatedButton
+          title="Continuar com Google"
+          onPress={handleGoogleLogin}
+          variant="outline"
+          size="large"
+          icon={<FontAwesome name="google" size={20} color="#b081ee" />}
+          style={styles.googleButton}
+        />
 
-      <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin} disabled={loadingGoogle}>
-        <Text style={styles.googleButtonText}>{loadingGoogle ? 'Entrando...' : 'G Entrar com Google'}</Text>
-      </TouchableOpacity>
-
-      {Platform.OS === 'ios' && (
-        <TouchableOpacity style={[styles.googleButton, { marginTop: 10 }]} onPress={handleAppleLogin} disabled={loadingApple}>
-          <Text style={styles.googleButtonText}>{loadingApple ? 'Entrando...' : ' Entrar com Apple'}</Text>
-        </TouchableOpacity>
-      )}
-
-      <Link href="/(auth)/signup" asChild>
-        <TouchableOpacity>
-          <Text style={styles.signupText}>
-            Não tem uma conta? <Text style={{fontWeight: 'bold', color: '#b081ee'}}>Cadastre-se</Text>
-          </Text>
-        </TouchableOpacity>
-      </Link>
-    </View>
+        <View style={styles.signupContainer}>
+          <Text style={styles.signupText}>Não tem uma conta? </Text>
+          <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
+            <Text style={styles.signupLink}>Cadastre-se</Text>
+          </TouchableOpacity>
+        </View>
+      </AnimatedCard>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 30,
+  },
+  logoContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 30,
-    backgroundColor: '#FFFFFF',
+    marginTop: 60,
+    marginBottom: 40,
   },
   logo: {
     width: 120,
     height: 120,
-    resizeMode: 'contain',
     marginBottom: 20,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#b081ee',
-    marginBottom: 40,
+    textAlign: 'center',
+  },
+  formContainer: {
+    flex: 1,
+    padding: 0,
+    margin: 0,
   },
   inputContainer: {
     width: '100%',
@@ -130,56 +180,68 @@ const styles = StyleSheet.create({
     color: '#333333',
     marginBottom: 8,
     fontSize: 16,
+    fontWeight: '600',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+  },
+  inputIcon: {
+    marginRight: 12,
   },
   input: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
+    flex: 1,
     color: '#333333',
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
   forgotPassword: {
+    alignSelf: 'flex-end',
+    marginBottom: 30,
+  },
+  forgotPasswordText: {
     color: '#b081ee',
-    textAlign: 'right',
-    marginTop: 10,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    fontSize: 14,
   },
   loginButton: {
-    backgroundColor: '#b081ee',
-    borderRadius: 10,
-    padding: 18,
-    width: '100%',
+    marginBottom: 20,
+  },
+  divider: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
-  },
-  loginButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 18,
-  },
-  orText: {
-    color: '#BDBDBD',
     marginVertical: 20,
   },
-  googleButton: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    padding: 18,
-    width: '100%',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E9ECEF',
   },
-  googleButtonText: {
-    color: '#333333',
-    fontWeight: 'bold',
-    fontSize: 16,
+  orText: {
+    color: '#8A8A8A',
+    marginHorizontal: 15,
+    fontSize: 14,
+  },
+  googleButton: {
+    marginBottom: 30,
+  },
+  signupContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   signupText: {
     color: '#8A8A8A',
-    marginTop: 30,
+    fontSize: 16,
+  },
+  signupLink: {
+    color: '#b081ee',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 }); 

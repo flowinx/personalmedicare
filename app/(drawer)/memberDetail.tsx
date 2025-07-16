@@ -1,10 +1,10 @@
-import { getDatabase } from '@/db';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { NavigationProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Member, getMemberById } from '../../db/members';
+import { getAllTreatments } from '../../db/memoryStorage';
 
 type RootStackParamList = {
   'Editar Membro': { id: number };
@@ -36,12 +36,17 @@ export default function MemberDetailScreen() {
       setMember(memberData);
 
       if (memberData) {
-        const db = await getDatabase();
-        const treatmentData = await db.getAllAsync<Treatment>(
-          'SELECT * FROM treatments WHERE member_id = ? ORDER BY start_datetime DESC',
-          [memberId]
-        );
-        setTreatments(treatmentData);
+        const allTreatments = await getAllTreatments();
+        const memberTreatments = allTreatments
+          .filter(treatment => treatment.member_id === memberId)
+          .map(treatment => ({
+            id: treatment.id,
+            medication: treatment.medication,
+            dosage: treatment.dosage,
+            start_datetime: treatment.start_datetime,
+            status: treatment.status
+          }));
+        setTreatments(memberTreatments);
       }
     } catch (error) {
       console.error("Failed to load member or treatment data:", error);

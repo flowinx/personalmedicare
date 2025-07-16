@@ -1,6 +1,6 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { signup } from '../../services/auth';
 
 export default function SignupScreen() {
@@ -33,67 +33,73 @@ export default function SignupScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Criar Conta</Text>
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 50 : 0}
+    >
+      <View style={styles.container}>
+        <Text style={styles.header}>Criar Conta</Text>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Nome Completo</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Seu nome completo"
-          placeholderTextColor="#BDBDBD"
-          value={fullname}
-          onChangeText={setFullname}
-        />
-      </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Nome Completo</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Seu nome completo"
+            placeholderTextColor="#BDBDBD"
+            value={fullname}
+            onChangeText={setFullname}
+          />
+        </View>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>E-mail</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="seuemail@exemplo.com"
-          placeholderTextColor="#BDBDBD"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
-      </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>E-mail</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="seuemail@exemplo.com"
+            placeholderTextColor="#BDBDBD"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+          />
+        </View>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Senha</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="********"
-          placeholderTextColor="#BDBDBD"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-      </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Senha</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="********"
+            placeholderTextColor="#BDBDBD"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+        </View>
 
-      <View style={styles.agreeContainer}>
-        <Switch
-            value={agree}
-            onValueChange={setAgree}
-            trackColor={{ false: "#E0E0E0", true: "#b081ee" }}
-            thumbColor={"#FFFFFF"}
-        />
-        <Text style={styles.agreeText}>Eu concordo com os termos e política de privacidade</Text>
-      </View>
+        <View style={styles.agreeContainer}>
+          <Switch
+              value={agree}
+              onValueChange={setAgree}
+              trackColor={{ false: "#E0E0E0", true: "#b081ee" }}
+              thumbColor={"#FFFFFF"}
+          />
+          <Text style={styles.agreeText}>Eu concordo com os termos e política de privacidade</Text>
+        </View>
 
-      <TouchableOpacity style={styles.signupButton} onPress={handleSignup} disabled={loading}>
-        <Text style={styles.signupButtonText}>{loading ? 'Cadastrando...' : 'Cadastrar'}</Text>
-      </TouchableOpacity>
-
-      <Link href="/(auth)/login" asChild>
-        <TouchableOpacity>
-            <Text style={styles.loginText}>
-                Já tem uma conta? <Text style={{fontWeight: 'bold', color: '#b081ee'}}>Faça login</Text>
-            </Text>
+        <TouchableOpacity style={styles.signupButton} onPress={handleSignup} disabled={loading}>
+          <Text style={styles.signupButtonText}>{loading ? 'Cadastrando...' : 'Cadastrar'}</Text>
         </TouchableOpacity>
-      </Link>
-    </View>
+
+        <Link href="/(auth)/login" asChild>
+          <TouchableOpacity>
+              <Text style={styles.loginText}>
+                  Já tem uma conta? <Text style={{fontWeight: 'bold', color: '#b081ee'}}>Faça login</Text>
+              </Text>
+          </TouchableOpacity>
+        </Link>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 

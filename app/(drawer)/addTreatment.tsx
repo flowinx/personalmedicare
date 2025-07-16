@@ -1,33 +1,43 @@
-import { getDatabase } from '@/db';
 import { FontAwesome } from '@expo/vector-icons';
-import * as Notifications from 'expo-notifications';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useRoute } from '@react-navigation/native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    Animated,
+    FlatList,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
-import { Config } from '../../constants/Config';
 import { Member, getAllMembers } from '../../db/members';
-import { useThemeColor } from '../../hooks/useThemeColor';
+import { addTreatment } from '../../db/memoryStorage';
+import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
+import { fetchMedicationInfo } from '../../services/n8nWebhook';
 
 const unitOptions = ['horas', 'dias', 'semanas', 'meses'];
 
 export default function AddTreatmentScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const route = useRoute();
+  
+  console.log('[AddTreatment] Component mounted with route params:', route.params);
+  
+  // Extrair memberId dos parâmetros da rota
+  const memberId = (route.params as any)?.memberId ? Number((route.params as any).memberId) : undefined;
+  const isMemberLocked = !!memberId;
+  
+  console.log('[AddTreatment] Extracted memberId:', memberId);
+  console.log('[AddTreatment] isMemberLocked:', isMemberLocked);
 
   const [members, setMembers] = useState<Member[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
@@ -47,25 +57,34 @@ export default function AddTreatmentScreen() {
   const [unitPickerType, setUnitPickerType] = useState<'duration' | 'frequency'>('frequency');
 
   const [loadingObservacao, setLoadingObservacao] = useState(false);
+  const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
+
+  useEffect(() => {
+    startAnimation();
+  }, [startAnimation]);
 
   useFocusEffect(
     useCallback(() => {
       async function fetchMembers() {
         const allMembers = await getAllMembers();
         setMembers(allMembers);
-  
-        // Se um membro já estava selecionado, tenta manter a seleção
-        const stillExists = allMembers.some(m => m.id === selectedMemberId);
-        if (params.memberId && !selectedMemberId) { // Prioriza ID vindo da navegação
-          setSelectedMemberId(Number(params.memberId));
-        } else if (!stillExists && allMembers.length > 0) { // Se o antigo não existe mais, seleciona o primeiro
+
+        console.log('[AddTreatment] Params memberId:', memberId);
+        console.log('[AddTreatment] Current selectedMemberId:', selectedMemberId);
+        console.log('[AddTreatment] All members:', allMembers.map(m => ({ id: m.id, name: m.name })));
+
+        // Prioriza sempre o memberId vindo da navegação
+        if (memberId) {
+          console.log('[AddTreatment] Setting memberId from params:', memberId);
+          setSelectedMemberId(memberId);
+        } else if (!selectedMemberId && allMembers.length > 0) {
+          // Se não há memberId nos parâmetros e nenhum membro selecionado, seleciona o primeiro
+          console.log('[AddTreatment] No memberId in params, selecting first member:', allMembers[0].id);
           setSelectedMemberId(allMembers[0].id || null);
-        } else if (!selectedMemberId && allMembers.length > 0) { // Se nenhum estiver selecionado, seleciona o primeiro
-          setSelectedMemberId(allMembers[0].id || null)
         }
       }
       fetchMembers();
-    }, [params.memberId]) // Mantemos a dependência para caso venha da tela de detalhes
+    }, [memberId, selectedMemberId]) // Adicionamos selectedMemberId como dependência
   );
 
   useFocusEffect(
@@ -79,7 +98,7 @@ export default function AddTreatmentScreen() {
       setFrequencyValue('');
       setFrequencyUnit('horas');
       setStartDate(new Date());
-    }, [params.memberId]));
+    }, [memberId]));
 
   const handleSaveTreatment = async () => {
     if (!selectedMemberId || !medication.trim() || !durationValue.trim() || !frequencyValue.trim()) {
@@ -96,75 +115,35 @@ export default function AddTreatmentScreen() {
     }
 
     try {
-      const db = await getDatabase();
       const startDateTime = startDate.toISOString();
       const durationString = `${durVal} ${durationUnit}`;
 
-      const result = await db.runAsync(
-        'INSERT INTO treatments (member_id, medication, dosage, frequency_value, frequency_unit, duration, notes, start_datetime, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [selectedMemberId, medication, dosage, freqVal, frequencyUnit, durationString, notes, startDateTime, 'ativo']
-      );
-      
-      const treatmentId = result.lastInsertRowId;
-      if (!treatmentId) throw new Error("Falha ao obter o ID do tratamento");
+      // Usar o novo sistema de memória
+      const treatmentData = {
+        member_id: selectedMemberId,
+        medication: medication.trim(),
+        dosage: dosage.trim(),
+        frequency_value: freqVal,
+        frequency_unit: frequencyUnit,
+        duration: durationString,
+        notes: notes.trim(),
+        start_datetime: startDateTime,
+        status: 'ativo'
+      };
 
-      let scheduledDoses = [];
-      let currentDoseTime = new Date(startDate);
-      
-      const treatmentEndDate = new Date(startDate);
-      if (durationUnit === 'dias') {
-        treatmentEndDate.setDate(treatmentEndDate.getDate() + durVal);
-      } else if (durationUnit === 'semanas') {
-        treatmentEndDate.setDate(treatmentEndDate.getDate() + durVal * 7);
-      } else if (durationUnit === 'meses') {
-        treatmentEndDate.setMonth(treatmentEndDate.getMonth() + durVal);
-      }
+      await addTreatment(treatmentData);
 
-      // Adicione um limite para evitar loops infinitos
-      const MAX_DOSES = 1000;
-      while (currentDoseTime <= treatmentEndDate && scheduledDoses.length < MAX_DOSES) {
-        scheduledDoses.push(new Date(currentDoseTime));
-        
-        if (frequencyUnit === 'horas') currentDoseTime.setHours(currentDoseTime.getHours() + freqVal);
-        else if (frequencyUnit === 'dias') currentDoseTime.setDate(currentDoseTime.getDate() + freqVal);
-        else if (frequencyUnit === 'semanas') currentDoseTime.setDate(currentDoseTime.getDate() + freqVal * 7);
-        else if (frequencyUnit === 'meses') currentDoseTime.setMonth(currentDoseTime.getMonth() + freqVal);
-        else break; // Safety break
-      }
+      // Por enquanto, vamos pular a criação de schedule até implementarmos
+      // TODO: Implementar sistema de schedule no memoryStorage
 
-      const schedulePromises = scheduledDoses.map(doseTime => 
-        db.runAsync(
-            'INSERT INTO schedule (treatment_id, scheduled_time, status) VALUES (?, ?, ?)',
-            treatmentId, doseTime.toISOString(), 'pendente'
-        )
-      );
-      await Promise.all(schedulePromises);
+      // Por enquanto, vamos pular as notificações até resolvermos os problemas de tipo
+      // TODO: Implementar sistema de notificações adequado
 
-      // Agendar notificações para cada dose
-      const memberName = members.find(m => m.id === selectedMemberId)?.name || '...';
-      for (const doseTime of scheduledDoses) {
-        // Não agendar notificações para doses que já passaram
-        if (doseTime > new Date()) {
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: "💊 Hora do Medicamento!",
-              body: `Está na hora de tomar ${medication} para ${memberName}.`,
-              data: { treatmentId },
-            },
-            trigger: {
-              hour: doseTime.getHours(),
-              minute: doseTime.getMinutes(),
-              repeats: false,
-            } as any,
-          });
-        }
-      }
-
-      Alert.alert('Sucesso', 'Tratamento e notificações agendados!');
+      Alert.alert('Sucesso', 'Tratamento salvo com sucesso!');
       router.back();
     } catch (error) {
       console.error('Falha ao salvar tratamento:', error);
-      Alert.alert('Erro', 'Não foi possível salvar o tratamento e a agenda.');
+      Alert.alert('Erro', 'Não foi possível salvar o tratamento.');
     }
   };
   
@@ -190,34 +169,24 @@ export default function AddTreatmentScreen() {
   const openUnitPicker = (type: 'duration' | 'frequency') => {
     setUnitPickerType(type);
     setUnitPickerVisible(true);
-  }
+  };
 
   const handleSelectUnit = (unit: string) => {
-    if (unitPickerType === 'duration') setDurationUnit(unit);
-    else setFrequencyUnit(unit);
+    if (unitPickerType === 'duration') {
+      setDurationUnit(unit);
+    } else {
+      setFrequencyUnit(unit);
+    }
     setUnitPickerVisible(false);
-  }
+  };
 
   const fetchInfoMedicamento = async (nome: string) => {
     if (!nome.trim()) return;
     setLoadingObservacao(true);
     try {
-      console.log('[AddTreatment] Valor da GROQ_API_KEY:', Config.GROQ_API_KEY);
-      const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Config.GROQ_API_KEY}`
-        },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: `Forneça um resumo muito curto e direto sobre o medicamento "${nome}". Inclua para que serve e um aviso principal, se houver. Use frases curtas, emojis para ilustrar e evite qualquer formatação markdown (como ** ou *).` }],
-          model: 'llama3-8b-8192'
-        })
-      });
-      const data = await response.json();
-      if (data.choices && data.choices.length > 0) {
-        setNotes(data.choices[0].message.content);
-      }
+      console.log('[AddTreatment] Buscando informações do medicamento:', nome);
+      const medicationInfo = await fetchMedicationInfo(nome);
+      setNotes(medicationInfo);
     } catch (error) {
       console.error("Erro ao buscar informações do medicamento:", error);
       Alert.alert("Erro", "Não foi possível buscar as informações do medicamento.");
@@ -234,75 +203,168 @@ export default function AddTreatmentScreen() {
     >
       <ThemedView style={styles.container}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-          <ThemedText style={styles.title}>Novo Tratamento</ThemedText>
-          {/* Seletor de Membro */}
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Para qual membro da família?</ThemedText>
-            <TouchableOpacity style={styles.picker} onPress={() => setMemberModalVisible(true)}>
-              <ThemedText lightColor="#2d1155" darkColor="#2d1155">{members.find(m => m.id === selectedMemberId)?.name || 'Selecione...'}</ThemedText>
-              <FontAwesome name="chevron-down" size={16} color="#2d1155" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Nome do Medicamento</ThemedText>
-            <TextInput style={styles.input} placeholder="Ex: Amoxicilina" value={medication} onChangeText={setMedication} onBlur={() => fetchInfoMedicamento(medication)} />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Dosagem</ThemedText>
-            <TextInput style={styles.input} placeholder="Ex: 1 comprimido de 500mg" value={dosage} onChangeText={setDosage} />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Duração do Tratamento</ThemedText>
-            <View style={styles.compositeInput}>
-              <TextInput style={[styles.input, styles.compositeInputText]} placeholder="Ex: 7" value={durationValue} onChangeText={setDurationValue} keyboardType="numeric" />
-              <TouchableOpacity style={styles.unitPicker} onPress={() => openUnitPicker('duration')}>
-                <ThemedText lightColor="#2d1155" darkColor="#2d1155">{durationUnit}</ThemedText>
-                <FontAwesome name="chevron-down" size={16} color="#2d1155" />
+          
+          {/* Card - Informações do Membro */}
+          <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.cardHeader}>
+              <FontAwesome name="user" size={20} color="#b081ee" />
+              <ThemedText style={styles.cardTitle}>Membro da Família</ThemedText>
+            </View>
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>Para qual membro da família?</ThemedText>
+              <TouchableOpacity style={styles.picker} onPress={() => !isMemberLocked && setMemberModalVisible(true)} disabled={isMemberLocked}>
+                <FontAwesome name="user" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                <ThemedText lightColor="#2d1155" darkColor="#2d1155" style={styles.pickerText}>
+                  {members.find(m => m.id === selectedMemberId)?.name || 'Selecione...'}
+                </ThemedText>
+                {isMemberLocked ? (
+                  <FontAwesome name="lock" size={16} color="#b081ee" style={{ marginLeft: 8 }} />
+                ) : (
+                  <FontAwesome name="chevron-down" size={16} color="#2d1155" />
+                )}
               </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
 
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Frequência (a cada)</ThemedText>
-            <View style={styles.compositeInput}>
-              <TextInput style={[styles.input, styles.compositeInputText]} placeholder="Ex: 8" value={frequencyValue} onChangeText={setFrequencyValue} keyboardType="numeric" />
-              <TouchableOpacity style={styles.unitPicker} onPress={() => openUnitPicker('frequency')}>
-                <ThemedText lightColor="#2d1155" darkColor="#2d1155">{frequencyUnit}</ThemedText>
-                <FontAwesome name="chevron-down" size={16} color="#2d1155" />
-              </TouchableOpacity>
+          {/* Card - Informações do Medicamento */}
+          <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.cardHeader}>
+              <FontAwesome name="medkit" size={20} color="#b081ee" />
+              <ThemedText style={styles.cardTitle}>Medicamento</ThemedText>
             </View>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Início do Tratamento</ThemedText>
-            <View style={styles.dateTimeContainer}>
-              <TouchableOpacity style={styles.pickerHalf} onPress={() => setDatePickerVisibility(true)}>
-                <ThemedText lightColor="#2d1155" darkColor="#2d1155">{startDate.toLocaleDateString()}</ThemedText>
-                <FontAwesome name="calendar" size={16} color={useThemeColor({}, 'icon')} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.pickerHalf} onPress={() => setTimePickerVisibility(true)}>
-                <ThemedText lightColor="#2d1155" darkColor="#2d1155">{startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</ThemedText>
-                <FontAwesome name="clock-o" size={16} color={useThemeColor({}, 'icon')} />
-              </TouchableOpacity>
+            
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>Nome do Medicamento</ThemedText>
+              <View style={styles.inputWrapper}>
+                <FontAwesome name="medkit" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                <TextInput 
+                  style={styles.input} 
+                  placeholder="Ex: Amoxicilina" 
+                  placeholderTextColor="#8A8A8A"
+                  value={medication} 
+                  onChangeText={setMedication} 
+                  onBlur={() => fetchInfoMedicamento(medication)} 
+                />
+              </View>
             </View>
-          </View>
 
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Observações</ThemedText>
-            <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]} placeholder="Ex: Tomar com um copo de água..." multiline value={notes} onChangeText={setNotes} />
-          </View>
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>Dosagem</ThemedText>
+              <View style={styles.inputWrapper}>
+                <FontAwesome name="balance-scale" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                <TextInput 
+                  style={styles.input} 
+                  placeholder="Ex: 1 comprimido de 500mg" 
+                  placeholderTextColor="#8A8A8A"
+                  value={dosage} 
+                  onChangeText={setDosage} 
+                />
+              </View>
+            </View>
+          </Animated.View>
 
-          <View style={styles.buttonContainer}>
+          {/* Card - Duração e Frequência */}
+          <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.cardHeader}>
+              <FontAwesome name="clock-o" size={20} color="#b081ee" />
+              <ThemedText style={styles.cardTitle}>Duração e Frequência</ThemedText>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>Duração do Tratamento</ThemedText>
+              <View style={styles.compositeInput}>
+                <View style={styles.inputWrapper}>
+                  <FontAwesome name="calendar" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                  <TextInput 
+                    style={[styles.input, styles.compositeInputText]} 
+                    placeholder="Ex: 7" 
+                    placeholderTextColor="#8A8A8A"
+                    value={durationValue} 
+                    onChangeText={setDurationValue} 
+                    keyboardType="numeric" 
+                  />
+                </View>
+                <TouchableOpacity style={styles.unitPicker} onPress={() => openUnitPicker('duration')}>
+                  <ThemedText lightColor="#2d1155" darkColor="#2d1155">{durationUnit}</ThemedText>
+                  <FontAwesome name="chevron-down" size={16} color="#2d1155" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>Frequência (a cada)</ThemedText>
+              <View style={styles.compositeInput}>
+                <View style={styles.inputWrapper}>
+                  <FontAwesome name="clock-o" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                  <TextInput 
+                    style={[styles.input, styles.compositeInputText]} 
+                    placeholder="Ex: 8" 
+                    placeholderTextColor="#8A8A8A"
+                    value={frequencyValue} 
+                    onChangeText={setFrequencyValue} 
+                    keyboardType="numeric" 
+                  />
+                </View>
+                <TouchableOpacity style={styles.unitPicker} onPress={() => openUnitPicker('frequency')}>
+                  <ThemedText lightColor="#2d1155" darkColor="#2d1155">{frequencyUnit}</ThemedText>
+                  <FontAwesome name="chevron-down" size={16} color="#2d1155" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Animated.View>
+
+          {/* Card - Início do Tratamento */}
+          <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.cardHeader}>
+              <FontAwesome name="calendar" size={20} color="#b081ee" />
+              <ThemedText style={styles.cardTitle}>Início do Tratamento</ThemedText>
+            </View>
+            
+            <View style={styles.inputContainer}>
+              <View style={styles.dateTimeContainer}>
+                <TouchableOpacity style={styles.pickerHalf} onPress={() => setDatePickerVisibility(true)}>
+                  <FontAwesome name="calendar" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                  <ThemedText lightColor="#2d1155" darkColor="#2d1155">{startDate.toLocaleDateString()}</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.pickerHalf} onPress={() => setTimePickerVisibility(true)}>
+                  <FontAwesome name="clock-o" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                  <ThemedText lightColor="#2d1155" darkColor="#2d1155">{startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Animated.View>
+
+          {/* Card - Observações */}
+          <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.cardHeader}>
+              <FontAwesome name="sticky-note" size={20} color="#b081ee" />
+              <ThemedText style={styles.cardTitle}>Observações</ThemedText>
+            </View>
+            
+            <View style={styles.inputContainer}>
+              <View style={styles.inputWrapper}>
+                <FontAwesome name="sticky-note" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                <TextInput 
+                  style={[styles.input, { height: 80, textAlignVertical: 'top' }]} 
+                  placeholder="Ex: Tomar com um copo de água..." 
+                  placeholderTextColor="#8A8A8A"
+                  multiline 
+                  value={notes} 
+                  onChangeText={setNotes} 
+                />
+              </View>
+            </View>
+          </Animated.View>
+
+          {/* Buttons */}
+          <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
             <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
-                <ThemedText style={styles.secondaryButtonText} lightColor="#b081ee" darkColor="#b081ee">Cancelar</ThemedText>
+              <ThemedText style={styles.secondaryButtonText} lightColor="#b081ee" darkColor="#b081ee">Cancelar</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity style={styles.primaryButton} onPress={handleSaveTreatment}>
-                <ThemedText style={styles.primaryButtonText} lightColor="#fff" darkColor="#fff">Salvar</ThemedText>
+              <ThemedText style={styles.primaryButtonText} lightColor="#fff" darkColor="#fff">Salvar</ThemedText>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </ScrollView>
       </ThemedView>
 
@@ -359,13 +421,35 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    paddingTop: 60,
+    paddingTop: 20,
   },
-  title: {
-    fontSize: 24,
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  cardTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+    marginLeft: 10,
+    color: '#2d1155',
   },
   inputContainer: {
     width: '100%',
@@ -374,26 +458,25 @@ const styles = StyleSheet.create({
   label: {
     marginBottom: 8,
     fontSize: 16,
+    fontWeight: '500',
+    color: '#2d1155',
   },
   input: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    paddingVertical: 10,
+    flex: 1,
+    paddingVertical: 12,
     paddingHorizontal: 15,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    color: '#333',
   },
   picker: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#F5F5F5',
     borderRadius: 10,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 15,
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -482,14 +565,15 @@ const styles = StyleSheet.create({
   },
   pickerHalf: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#F5F5F5',
-    padding: 15,
     borderRadius: 10,
-    width: '48%',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    flex: 1,
+    marginHorizontal: 5,
   },
   modalOverlay: {
     flex: 1,
@@ -507,5 +591,20 @@ const styles = StyleSheet.create({
   },
   modalItemText: {
     fontSize: 16,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  inputIcon: {
+    marginLeft: 15,
+    marginRight: 10,
+  },
+  pickerText: {
+    flex: 1,
   },
 }); 

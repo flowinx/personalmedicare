@@ -27,7 +27,6 @@ export default function SelectMemberReportScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText style={styles.title}>Selecione o Membro</ThemedText>
       {loading ? (
         <ActivityIndicator size="large" color="#b081ee" style={{ marginTop: 40 }} />
       ) : (
@@ -71,12 +70,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
   },
   memberCard: {
     backgroundColor: 'white',

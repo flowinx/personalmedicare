@@ -1,13 +1,13 @@
 import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Animated, FlatList, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
-import { ThemedView } from '../../components/ThemedView';
-import { Document, saveDocument } from '../../db/documents';
+import { N8NConfig } from '../../constants/N8NConfig';
 import { Member, getAllMembers } from '../../db/members';
+import { saveDocument } from '../../db/memoryStorage';
+import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 import { extractTextFromDocument } from '../../services/documentParser';
-import { analyzeDocument as analyzeWithGroq } from '../../services/groq';
 
 export default function DocumentAnalysisScreen() {
   const [document, setDocument] = useState<DocumentPicker.DocumentPickerResult | null>(null);
@@ -18,20 +18,24 @@ export default function DocumentAnalysisScreen() {
   const [processingStep, setProcessingStep] = useState<string>('');
   const [isMemberModalVisible, setMemberModalVisible] = useState(false);
 
-  useEffect(() => {
-    loadMembers();
-  }, []);
+  // Animações de entrada
+  const { fadeAnim, slideAnim, startAnimation } = useEntranceAnimation();
 
-  const loadMembers = async () => {
+  useEffect(() => {
+    startAnimation();
+    loadMembers();
+  }, [startAnimation]);
+
+  const loadMembers = useCallback(async () => {
     try {
       const allMembers = await getAllMembers();
       setMembers(allMembers);
     } catch (error) {
       console.error('Erro ao carregar membros:', error);
     }
-  };
+  }, []);
 
-  const pickDocument = async () => {
+  const pickDocument = useCallback(async () => {
     if (!selectedMemberId) {
       alert('Por favor, selecione um membro primeiro');
       return;
@@ -45,36 +49,74 @@ export default function DocumentAnalysisScreen() {
 
       if (!result.canceled) {
         setDocument(result);
-        analyzeDocument(result);
+        processDocument(result);
       }
     } catch (err) {
       console.error('Erro ao selecionar documento:', err);
     }
-  };
+  }, [selectedMemberId]);
 
-  const analyzeDocument = async (doc: DocumentPicker.DocumentPickerResult) => {
+  async function sendPdfToWebhook(fileUri: string, fileName: string, mimeType: string): Promise<string> {
+    const formData = new FormData();
+    // @ts-ignore
+    formData.append('file', { uri: fileUri, name: fileName, type: mimeType });
+    try {
+      console.log('[DocumentAnalysis] Enviando PDF para webhook:', N8NConfig.DOCUMENT_ANALYSIS_WEBHOOK);
+      const response = await fetch(N8NConfig.DOCUMENT_ANALYSIS_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'multipart/form-data' },
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error('Erro ao enviar PDF para análise.');
+      }
+      const data = await response.json();
+      return data.text || data.result || 'Nenhum texto extraído.';
+    } catch (error) {
+      console.error('Erro no webhook:', error);
+      throw new Error('Erro ao processar o PDF no servidor.');
+    }
+  }
+
+  const processDocument = useCallback(async (doc: DocumentPicker.DocumentPickerResult) => {
     if (doc.canceled || !selectedMemberId) return;
 
     setIsLoading(true);
     try {
-      setProcessingStep('Extraindo texto do documento...');
-      const extractedText = await extractTextFromDocument(
-        doc.assets[0].uri,
-        doc.assets[0].mimeType || 'application/octet-stream'
-      );
-      setProcessingStep('Analisando o documento...');
-      const analysisResult = await analyzeWithGroq(extractedText);
-      setAnalysis(analysisResult);
-      setProcessingStep('Salvando documento...');
-      const documentData: Document = {
-        member_id: selectedMemberId,
-        file_name: doc.assets[0].name,
-        file_uri: doc.assets[0].uri,
-        file_type: doc.assets[0].mimeType || 'application/octet-stream',
-        analysis_text: analysisResult
-      };
-      await saveDocument(documentData);
-      setProcessingStep('');
+      const asset = doc.assets[0];
+      if (asset.mimeType === 'application/pdf') {
+        setProcessingStep('Enviando PDF para análise, aguarde...');
+        const webhookResult = await sendPdfToWebhook(asset.uri, asset.name, asset.mimeType);
+        setAnalysis(webhookResult);
+        setProcessingStep('Salvando documento...');
+        const documentData = {
+          member_id: selectedMemberId,
+          file_name: asset.name,
+          file_uri: asset.uri,
+          file_type: asset.mimeType,
+          analysis_text: webhookResult,
+          created_at: new Date().toISOString()
+        };
+        await saveDocument(documentData);
+        setProcessingStep('');
+      } else {
+        setProcessingStep('Extraindo texto do documento...');
+        const extractedText = await extractTextFromDocument(asset.uri, asset.mimeType || 'application/octet-stream');
+        setProcessingStep('Analisando o documento...');
+        const analysisResult = await analyzeDocument(extractedText);
+        setAnalysis(analysisResult);
+        setProcessingStep('Salvando documento...');
+        const documentData = {
+          member_id: selectedMemberId,
+          file_name: asset.name,
+          file_uri: asset.uri,
+          file_type: asset.mimeType || 'application/octet-stream',
+          analysis_text: analysisResult,
+          created_at: new Date().toISOString()
+        };
+        await saveDocument(documentData);
+        setProcessingStep('');
+      }
     } catch (error) {
       console.error('Erro na análise do documento:', error);
       alert(error instanceof Error ? error.message : 'Erro ao processar o documento. Por favor, tente novamente.');
@@ -82,28 +124,102 @@ export default function DocumentAnalysisScreen() {
       setIsLoading(false);
       setProcessingStep('');
     }
-  };
+  }, [selectedMemberId]);
 
-  const handleSelectMember = (id: number) => {
+  const handleSelectMember = useCallback((id: number) => {
     setSelectedMemberId(id);
     setMemberModalVisible(false);
-  };
+  }, []);
 
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-      <ThemedView style={styles.container}>
-        <ThemedText style={styles.title}>Análise de Documentos</ThemedText>
-        <ThemedText style={styles.label}>Selecione o Membro:</ThemedText>
-        <View style={styles.pickerWrapper}>
-          {members.length === 0 ? (
-            <ThemedText style={styles.noMembersText}>Nenhum membro cadastrado. Cadastre um membro para usar esta função.</ThemedText>
-          ) : (
-            <TouchableOpacity style={styles.picker} onPress={() => setMemberModalVisible(true)}>
-              <ThemedText lightColor="#2d1155" darkColor="#2d1155">{members.find(m => m.id === selectedMemberId)?.name || 'Selecione...'}</ThemedText>
-              <FontAwesome name="chevron-down" size={16} color="#2d1155" />
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Card de Seleção de Membro */}
+          <Animated.View style={[styles.card, { transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.cardHeader}>
+              <FontAwesome name="user" size={20} color="#b081ee" style={styles.cardIcon} />
+              <ThemedText style={styles.cardTitle}>Selecionar Membro</ThemedText>
+            </View>
+            
+            <View style={styles.inputContainer}>
+              <View style={styles.inputWrapper}>
+                <FontAwesome name="users" size={16} color="#b081ee" style={styles.inputIcon} />
+                <TouchableOpacity 
+                  style={[styles.input, !selectedMemberId && styles.inputPlaceholder]} 
+                  onPress={() => setMemberModalVisible(true)}
+                  disabled={members.length === 0}
+                >
+                  <ThemedText style={[styles.inputText, !selectedMemberId && styles.placeholderText]}>
+                    {members.find(m => m.id === selectedMemberId)?.name || 'Selecione um membro...'}
+                  </ThemedText>
+                  <FontAwesome name="chevron-down" size={16} color="#b081ee" />
+                </TouchableOpacity>
+              </View>
+              
+              {members.length === 0 && (
+                <ThemedText style={styles.noMembersText}>
+                  Nenhum membro cadastrado. Cadastre um membro para usar esta função.
+                </ThemedText>
+              )}
+            </View>
+          </Animated.View>
+
+          {/* Card de Upload de Documento */}
+          <Animated.View style={[styles.card, { transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.cardHeader}>
+              <FontAwesome name="file-text-o" size={20} color="#b081ee" style={styles.cardIcon} />
+              <ThemedText style={styles.cardTitle}>Documento</ThemedText>
+            </View>
+            
+            <TouchableOpacity
+              style={[styles.uploadButton, (!selectedMemberId || members.length === 0) && styles.uploadButtonDisabled]}
+              onPress={pickDocument}
+              disabled={isLoading || !selectedMemberId || members.length === 0}
+              activeOpacity={0.8}
+            >
+              <FontAwesome name="upload" size={18} color="#fff" style={styles.buttonIcon} />
+              <ThemedText style={styles.buttonText}>
+                {document && !document.canceled ? 'Selecionar outro documento' : 'Selecionar documento'}
+              </ThemedText>
             </TouchableOpacity>
+            
+            {document && !document.canceled && (
+              <View style={styles.documentInfo}>
+                <FontAwesome name="file" size={16} color="#b081ee" />
+                <ThemedText style={styles.documentName}>
+                  {document.assets[0].name}
+                </ThemedText>
+              </View>
+            )}
+          </Animated.View>
+
+          {/* Loading */}
+          {isLoading && (
+            <Animated.View style={[styles.card, styles.loadingCard, { transform: [{ translateY: slideAnim }] }]}>
+              <ActivityIndicator size="large" color="#b081ee" />
+              <ThemedText style={styles.loadingText}>
+                {processingStep || 'Processando...'}
+              </ThemedText>
+            </Animated.View>
           )}
-        </View>
+
+          {/* Resultado da Análise */}
+          {analysis && (
+            <Animated.View style={[styles.card, styles.analysisCard, { transform: [{ translateY: slideAnim }] }]}>
+              <View style={styles.cardHeader}>
+                <FontAwesome name="search" size={20} color="#b081ee" style={styles.cardIcon} />
+                <ThemedText style={styles.cardTitle}>Resultado da Análise</ThemedText>
+              </View>
+              <ThemedText style={styles.analysisText}>{analysis}</ThemedText>
+            </Animated.View>
+          )}
+        </ScrollView>
+
+        {/* Modal de Seleção de Membro */}
         <Modal
           animationType="slide"
           transparent={true}
@@ -112,7 +228,10 @@ export default function DocumentAnalysisScreen() {
         >
           <Pressable style={styles.modalOverlay} onPress={() => setMemberModalVisible(false)}>
             <View style={styles.modalContent}>
-              <ThemedText style={styles.modalTitle} lightColor="#2d1155" darkColor="#2d1155">Selecione o Membro</ThemedText>
+              <View style={styles.modalHeader}>
+                <FontAwesome name="users" size={20} color="#b081ee" />
+                <ThemedText style={styles.modalTitle}>Selecione o Membro</ThemedText>
+              </View>
               <FlatList
                 data={members}
                 keyExtractor={item => item.id?.toString() || ''}
@@ -120,8 +239,9 @@ export default function DocumentAnalysisScreen() {
                   <TouchableOpacity
                     style={styles.modalItem}
                     onPress={() => item.id && handleSelectMember(item.id)}
+                    activeOpacity={0.7}
                   >
-                    <ThemedText style={styles.modalItemText} lightColor="#2d1155" darkColor="#2d1155">{item.name}</ThemedText>
+                    <ThemedText style={styles.modalItemText}>{item.name}</ThemedText>
                     {selectedMemberId === item.id && <FontAwesome name="check" size={16} color="#b081ee" />}
                   </TouchableOpacity>
                 )}
@@ -129,150 +249,146 @@ export default function DocumentAnalysisScreen() {
             </View>
           </Pressable>
         </Modal>
-        <TouchableOpacity
-          style={[styles.uploadButton, (!selectedMemberId || members.length === 0) && styles.uploadButtonDisabled]}
-          onPress={pickDocument}
-          disabled={isLoading || !selectedMemberId || members.length === 0}
-        >
-          <ThemedText style={styles.buttonText} lightColor="#2d1155" darkColor="#2d1155">
-            {document && !document.canceled ? 'Selecionar outro documento' : 'Selecionar documento'}
-          </ThemedText>
-        </TouchableOpacity>
-        {document && !document.canceled && (
-          <View style={styles.documentInfo}>
-            <ThemedText>Documento selecionado: {document.assets[0].name}</ThemedText>
-          </View>
-        )}
-        {isLoading && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#b081ee" />
-            <ThemedText style={styles.loadingText}>{processingStep || 'Processando...'}</ThemedText>
-          </View>
-        )}
-        {analysis && (
-          <View style={styles.analysisContainer}>
-            <ThemedText style={styles.analysisTitle}>Resultado da Análise:</ThemedText>
-            <ThemedText style={styles.analysisText}>{analysis}</ThemedText>
-          </View>
-        )}
-      </ThemedView>
-    </ScrollView>
+      </Animated.View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'flex-start',
+    backgroundColor: '#f8f9fa',
+  },
+  scrollContent: {
+    padding: 20,
+    paddingTop: 20,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 24,
-    paddingTop: 60,
+    marginBottom: 16,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+  cardIcon: {
+    marginRight: 12,
   },
-  label: {
-    fontSize: 16,
+  cardTitle: {
+    fontSize: 18,
     fontWeight: '600',
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-    marginLeft: 4,
+    color: '#2d1155',
   },
-  pickerWrapper: {
+  inputContainer: {
     width: '100%',
-    marginBottom: 20,
   },
-  picker: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+  inputWrapper: {
+    position: 'relative',
+    marginBottom: 8,
+  },
+  inputIcon: {
+    position: 'absolute',
+    left: 16,
+    top: 16,
+    zIndex: 1,
+  },
+  input: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingLeft: 48,
     borderWidth: 1,
-    borderColor: '#b081ee',
+    borderColor: '#e9ecef',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 48,
-    marginBottom: 20,
+    minHeight: 52,
+  },
+  inputPlaceholder: {
+    borderColor: '#b081ee',
+  },
+  inputText: {
+    fontSize: 16,
+    color: '#2d1155',
+    flex: 1,
+  },
+  placeholderText: {
+    color: '#6c757d',
   },
   noMembersText: {
     color: '#b081ee',
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'center',
     padding: 12,
+    fontStyle: 'italic',
   },
   uploadButton: {
     backgroundColor: '#b081ee',
+    borderRadius: 12,
     paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 10,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    width: '100%',
+    justifyContent: 'center',
     shadowColor: '#b081ee',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   uploadButtonDisabled: {
-    backgroundColor: '#cccccc',
+    backgroundColor: '#dee2e6',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 17,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
   },
   documentInfo: {
-    marginBottom: 20,
-    padding: 10,
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#b081ee',
-    backgroundColor: '#f5f5f5',
-    width: '100%',
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#2d1155',
-  },
-  analysisContainer: {
-    padding: 15,
-    borderRadius: 10,
-    backgroundColor: '#f5f5f5',
-    width: '100%',
-    marginBottom: 24,
-  },
-  analysisTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#2d1155',
-  },
-  analysisText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#2d1155',
-  },
-  closeButton: {
-    padding: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  compositeInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 10,
+  },
+  documentName: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#2d1155',
+    flex: 1,
+  },
+  loadingCard: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#2d1155',
+    textAlign: 'center',
+  },
+  analysisCard: {
+    marginBottom: 24,
+  },
+  analysisText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#2d1155',
   },
   modalOverlay: {
     flex: 1,
@@ -283,24 +399,40 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: 'white',
     borderRadius: 20,
-    padding: 20,
-    maxHeight: '50%',
+    padding: 24,
+    maxHeight: '60%',
+    width: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f3f4',
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
+    fontWeight: '600',
+    color: '#2d1155',
+    marginLeft: 12,
   },
   modalItem: {
-    paddingVertical: 15,
+    paddingVertical: 16,
+    paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#f1f3f4',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   modalItemText: {
     fontSize: 16,
+    color: '#2d1155',
   },
 }); 

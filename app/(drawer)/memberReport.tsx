@@ -4,8 +4,8 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, Vie
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { Config } from '../../constants/Config';
-import { getDatabase } from '../../db/index';
 import { Member, getMemberById } from '../../db/members';
+import { getAllTreatments } from '../../db/memoryStorage';
 
 interface Treatment {
   id: number;
@@ -43,32 +43,20 @@ export default function MemberReportScreen() {
     async function fetchData() {
       setLoading(true);
       try {
-        const db = await getDatabase();
         const memberData = await getMemberById(memberId);
         setMember(memberData);
 
-        const baseTreatments = await db.getAllAsync<Treatment>(
-          'SELECT * FROM treatments WHERE member_id = ? ORDER BY start_datetime DESC',
-          [memberId]
-        );
+        const allTreatments = await getAllTreatments();
+        const memberTreatments = allTreatments.filter(treatment => treatment.member_id === memberId);
 
-        const treatmentsWithAdherence = await Promise.all(
-          baseTreatments.map(async (treatment) => {
-            const totalDosesResult = await db.getAllAsync<{ count: number }>(
-              'SELECT COUNT(*) as count FROM schedule WHERE treatment_id = ?',
-              [treatment.id]
-            );
-            const takenDosesResult = await db.getAllAsync<{ count: number }>(
-              'SELECT COUNT(*) as count FROM schedule WHERE treatment_id = ? AND status = ?',
-              [treatment.id, 'tomado']
-            );
-            return {
-              ...treatment,
-              totalDoses: totalDosesResult[0]?.count ?? 0,
-              takenDoses: takenDosesResult[0]?.count ?? 0,
-            };
-          })
-        );
+        // Por enquanto, vamos simular dados de adesão até implementarmos o sistema de schedule
+        const treatmentsWithAdherence = memberTreatments.map(treatment => ({
+          ...treatment,
+          notes: treatment.notes || '',
+          totalDoses: 0, // TODO: Implementar contagem real de doses
+          takenDoses: 0, // TODO: Implementar contagem real de doses tomadas
+        }));
+        
         setTreatments(treatmentsWithAdherence);
       } catch (error) {
         console.error("Failed to fetch member report data:", error);
@@ -122,7 +110,6 @@ export default function MemberReportScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <ThemedText style={styles.title}>Dossiê do Membro</ThemedText>
         {loading ? (
           <ActivityIndicator size="large" color="#b081ee" style={{ marginTop: 40 }} />
         ) : (
@@ -179,12 +166,6 @@ export default function MemberReportScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
   },
   memberInfo: {
     backgroundColor: 'white',

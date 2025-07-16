@@ -16,11 +16,12 @@ export const Colors = {
     tabIconSelected: tintColorLight,
   },
   dark: {
-    text: '#F5F5F5',
-    background: '#2d1155',
-    tint: tintColorDark,
-    icon: '#b081ee',
-    tabIconDefault: '#b081ee',
-    tabIconSelected: '#fff',
+    // Opção 3: Roxo escuro suave (aplicado)
+    text: '#F0E8F8',
+    background: '#1A1620',
+    tint: '#9C27B0',
+    icon: '#8A7B8A',
+    tabIconDefault: '#8A7B8A',
+    tabIconSelected: '#9C27B0',
   },
 };

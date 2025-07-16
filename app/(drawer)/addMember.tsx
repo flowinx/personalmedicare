@@ -1,11 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import { ThemedText } from '../../components/ThemedText';
-import { ThemedView } from '../../components/ThemedView';
-import { addMember } from '../../db/members';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { AnimatedCard } from '../../components/AnimatedCard';
+import { addMember } from '../../db/memoryStorage';
+import { useEntranceAnimation } from '../../utils/animations';
 
 export default function AddMemberScreen() {
   const router = useRouter();
@@ -14,228 +14,325 @@ export default function AddMemberScreen() {
   const [dob, setDob] = useState('');
   const [notes, setNotes] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
 
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de permissão para acessar sua galeria de fotos.');
-      return;
+  useEffect(() => {
+    startAnimation();
+  }, [startAnimation]);
+
+  // Função para formatar a data automaticamente
+  const formatDate = useCallback((text: string) => {
+    // Remove todos os caracteres não numéricos
+    const numbers = text.replace(/\D/g, '');
+    
+    // Aplica a máscara DD/MM/AAAA
+    if (numbers.length <= 2) {
+      return numbers;
+    } else if (numbers.length <= 4) {
+      return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
+    } else if (numbers.length <= 8) {
+      return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4)}`;
+    } else {
+      // Limita a 8 dígitos (DD/MM/AAAA)
+      return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4, 8)}`;
     }
+  }, []);
 
-    let result = await ImagePicker.launchImageLibraryAsync({
+  const handleDateChange = useCallback((text: string) => {
+    const formatted = formatDate(text);
+    setDob(formatted);
+  }, [formatDate]);
+
+  const clearForm = useCallback(() => {
+    setName('');
+    setRelation('');
+    setDob('');
+    setNotes('');
+    setAvatarUri(null);
+  }, []);
+
+  const pickImage = useCallback(async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 1,
+      quality: 0.8,
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets[0]) {
       setAvatarUri(result.assets[0].uri);
     }
-  };
+  }, []);
 
-  // Função para aplicar máscara de data DD/MM/AAAA
-  function maskDate(value: string) {
-    let cleaned = value.replace(/\D/g, '');
-    let masked = '';
-    if (cleaned.length > 0) masked = cleaned.substring(0, 2);
-    if (cleaned.length >= 3) masked += '/' + cleaned.substring(2, 4);
-    if (cleaned.length >= 5) masked += '/' + cleaned.substring(4, 8);
-    return masked;
-  }
-
-  function handleDobChange(text: string) {
-    setDob(maskDate(text));
-  }
-
-  const handleAddMember = async () => {
-    if (!name.trim()) {
-      Alert.alert('Erro', 'O nome do membro é obrigatório.');
+  const handleSave = useCallback(async () => {
+    if (!name.trim() || !relation.trim()) {
+      Alert.alert('Erro', 'Nome e relação são obrigatórios');
       return;
     }
 
-    try {
-      await addMember({
-        name,
-        relation,
-        dob,
-        notes,
-        avatar_uri: avatarUri ? avatarUri : null
-      });
-      Alert.alert('Sucesso', 'Novo membro adicionado!');
-      router.back();
-    } catch (error) {
-      console.error('Failed to add member:', error);
-      Alert.alert('Erro', 'Não foi possível adicionar o membro.');
-    }
-  };
+    setIsLoading(true);
 
-  useFocusEffect(
-    useCallback(() => {
-      setName('');
-      setRelation('');
-      setDob('');
-      setNotes('');
-      setAvatarUri(null);
-    }, [])
-  );
+    try {
+      const newMember = await addMember({
+        name: name.trim(),
+        relation: relation.trim(),
+        dob: dob.trim(),
+        notes: notes.trim(),
+        avatar_uri: avatarUri || undefined,
+      });
+
+      Alert.alert(
+        'Sucesso',
+        'Membro adicionado com sucesso!',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              clearForm();
+              router.back();
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Erro', 'Erro ao adicionar membro');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [name, relation, dob, notes, avatarUri, router, clearForm]);
+
+  const handleCancel = useCallback(() => {
+    router.back();
+  }, [router]);
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
-    >
-      <ThemedView style={styles.container}>
-        <ScrollView 
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40 }}
-        >
-          <ThemedText style={styles.title}>Novo Membro</ThemedText>
-          
-          <TouchableOpacity style={styles.avatarContainer} onPress={pickImage}>
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Ionicons name="camera" size={40} color="#b081ee" />
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        <AnimatedCard delay={100} style={styles.avatarCard}>
+          <View style={styles.avatarContainer}>
+            <TouchableOpacity onPress={pickImage} style={styles.avatarButton}>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <FontAwesome name="user" size={40} color="#b081ee" />
+                </View>
+              )}
+              <View style={styles.avatarOverlay}>
+                <FontAwesome name="camera" size={20} color="white" />
               </View>
-            )}
-            <ThemedText style={styles.avatarText} lightColor="#b081ee" darkColor="#b081ee">Adicionar Foto</ThemedText>
+            </TouchableOpacity>
+            <Text style={styles.avatarText}>Toque para adicionar foto</Text>
+          </View>
+        </AnimatedCard>
+
+        <AnimatedCard delay={200} style={styles.formCard}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Nome Completo *</Text>
+            <View style={styles.inputWrapper}>
+              <FontAwesome name="user" size={20} color="#8A8A8A" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Digite o nome completo"
+                placeholderTextColor="#8A8A8A"
+                value={name}
+                onChangeText={setName}
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Relação *</Text>
+            <View style={styles.inputWrapper}>
+              <FontAwesome name="heart" size={20} color="#8A8A8A" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: Pai, Mãe, Filho, etc."
+                placeholderTextColor="#8A8A8A"
+                value={relation}
+                onChangeText={setRelation}
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Data de Nascimento</Text>
+            <View style={styles.inputWrapper}>
+              <FontAwesome name="calendar" size={20} color="#8A8A8A" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="DD/MM/AAAA"
+                placeholderTextColor="#8A8A8A"
+                value={dob}
+                onChangeText={handleDateChange}
+                keyboardType="numeric"
+                maxLength={10}
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Observações</Text>
+            <View style={styles.inputWrapper}>
+              <FontAwesome name="sticky-note" size={20} color="#8A8A8A" style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Informações adicionais..."
+                placeholderTextColor="#8A8A8A"
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+          </View>
+        </AnimatedCard>
+
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+            <Text style={styles.cancelButtonText}>Cancelar</Text>
           </TouchableOpacity>
-
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Nome Completo</ThemedText>
-            <TextInput
-              style={styles.input}
-              placeholder="Nome do membro da família"
-              value={name}
-              onChangeText={setName}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Parentesco</ThemedText>
-            <TextInput
-              style={styles.input}
-              placeholder="Pai, Mãe, Filho(a), etc."
-              value={relation}
-              onChangeText={setRelation}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Data de Nascimento</ThemedText>
-            <TextInput
-              style={styles.input}
-              placeholder="DD/MM/AAAA"
-              value={dob}
-              onChangeText={handleDobChange}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Observações</ThemedText>
-            <TextInput
-              style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-              placeholder="Alergias, condições pré-existentes, etc."
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-            />
-          </View>
-
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
-                <ThemedText style={styles.secondaryButtonText} lightColor="#b081ee" darkColor="#b081ee">Cancelar</ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.primaryButton} onPress={handleAddMember}>
-                <ThemedText style={styles.primaryButtonText} lightColor="#fff" darkColor="#fff">Adicionar</ThemedText>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </ThemedView>
-    </KeyboardAvoidingView>
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+            <Text style={styles.saveButtonText}>Salvar</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    paddingTop: 60,
+    backgroundColor: '#F9F9F9',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  scrollContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  avatarCard: {
     marginBottom: 20,
-    textAlign: 'center',
+    padding: 0,
   },
   avatarContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    padding: 20,
+  },
+  avatarButton: {
+    position: 'relative',
+    marginBottom: 10,
   },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#F5F5F5',
+    borderWidth: 3,
+    borderColor: '#b081ee',
   },
   avatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#f0eaff',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#E6E0FF'
+    borderWidth: 3,
+    borderColor: '#b081ee',
+    borderStyle: 'dashed',
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#b081ee',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
   },
   avatarText: {
-    marginTop: 10,
-    fontWeight: 'bold',
+    color: '#8A8A8A',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  formCard: {
+    marginBottom: 20,
+    padding: 0,
   },
   inputContainer: {
-    width: '100%',
-    marginBottom: 15,
+    marginBottom: 20,
+    paddingHorizontal: 20,
   },
   label: {
     marginBottom: 8,
     fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  inputIcon: {
+    marginRight: 12,
   },
   input: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+    flex: 1,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    color: '#333',
+  },
+  textArea: {
+    minHeight: 80,
+    paddingTop: 8,
   },
   buttonContainer: {
     flexDirection: 'row',
     marginTop: 20,
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
   },
-  primaryButton: {
-      backgroundColor: '#b081ee',
-      borderRadius: 15,
-      padding: 15,
-      alignItems: 'center',
-      flex: 1,
-      marginLeft: 10,
+  cancelButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 15,
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#b081ee',
   },
-  primaryButtonText: {
-      fontWeight: 'bold',
-      fontSize: 16,
+  saveButton: {
+    backgroundColor: '#b081ee',
+    borderRadius: 15,
+    padding: 15,
+    alignItems: 'center',
+    flex: 1,
+    marginLeft: 10,
   },
-  secondaryButton: {
-      backgroundColor: '#FFFFFF',
-      borderRadius: 15,
-      padding: 15,
-      alignItems: 'center',
-      flex: 1,
-      marginRight: 10,
-      borderWidth: 1,
-      borderColor: '#b081ee'
+  cancelButtonText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#b081ee',
   },
-  secondaryButtonText: {
-      fontWeight: 'bold',
-      fontSize: 16,
-  }
+  saveButtonText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#fff',
+  },
 }); 
