@@ -2,9 +2,8 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Animated, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { ProfileImage } from '../../components/ProfileImage';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { useProfile } from '../../contexts/ProfileContext';
@@ -98,19 +97,27 @@ export default function ProfileScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 40, paddingTop: 20 }}
         >
-          {/* Profile Card */}
+          {/* Avatar Card */}
+          <Animated.View style={[styles.avatarCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.avatarContainer}>
+              <TouchableOpacity onPress={pickImage} style={styles.avatarButton}>
+                {avatar ? (
+                  <Image source={{ uri: avatar }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <FontAwesome name="user" size={40} color="#b081ee" />
+                  </View>
+                )}
+                <View style={styles.avatarOverlay}>
+                  <Ionicons name="camera" size={20} color="white" />
+                </View>
+              </TouchableOpacity>
+              <ThemedText style={styles.avatarText}>Toque para alterar foto</ThemedText>
+            </View>
+          </Animated.View>
+
+          {/* Profile Form Card */}
           <Animated.View style={[styles.profileCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            <TouchableOpacity style={styles.avatarContainer} onPress={pickImage}>
-              <ProfileImage 
-                uri={avatar}
-                size={100}
-                fallbackIcon="person"
-              />
-              <View style={styles.avatarOverlay}>
-                <Ionicons name="camera" size={20} color="white" />
-              </View>
-            </TouchableOpacity>
-            
             <View style={styles.inputContainer}>
               <ThemedText style={styles.label} lightColor="#2d1155" darkColor="#2d1155">Nome</ThemedText>
               <View style={styles.inputWrapper}>
@@ -172,6 +179,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  avatarCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 0,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
   profileCard: {
     backgroundColor: 'white',
     borderRadius: 12,
@@ -186,14 +205,34 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    padding: 20,
+  },
+  avatarButton: {
     position: 'relative',
+    marginBottom: 10,
+  },
+  avatarText: {
+    color: '#8A8A8A',
+    fontSize: 14,
+    textAlign: 'center',
   },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
+    borderWidth: 3,
+    borderColor: '#b081ee',
+  },
+  avatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: '#f0eaff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#b081ee',
+    borderStyle: 'dashed',
   },
   avatarOverlay: {
     position: 'absolute',

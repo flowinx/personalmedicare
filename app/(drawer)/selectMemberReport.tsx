@@ -1,22 +1,34 @@
+import { FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { ThemedText } from '../../components/ThemedText';
-import { ThemedView } from '../../components/ThemedView';
-import { Member, getAllMembers } from '../../db/members';
+import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AnimatedCard } from '../../components/AnimatedCard';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { Member, getAllMembers, initMembersDB } from '../../db/members';
+import { useEntranceAnimation } from '../../utils/animations';
 
 export default function SelectMemberReportScreen() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
+  const { t } = useLanguage();
+  const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
 
   useEffect(() => {
+    startAnimation();
     loadMembers();
-  }, []);
+  }, [startAnimation]);
 
   const loadMembers = async () => {
     try {
+      setLoading(true);
+      console.log('Iniciando carregamento de membros...');
+      // Garantir que o banco de dados está inicializado
+      await initMembersDB();
       const allMembers = await getAllMembers();
+      console.log('Membros carregados:', allMembers.length);
+      console.log('Lista de membros:', allMembers);
       setMembers(allMembers);
     } catch (error) {
       console.error('Erro ao carregar membros:', error);
@@ -25,102 +37,239 @@ export default function SelectMemberReportScreen() {
     }
   };
 
-  return (
-    <ThemedView style={styles.container}>
-      {loading ? (
-        <ActivityIndicator size="large" color="#b081ee" style={{ marginTop: 40 }} />
-      ) : (
-        <>
-          {members.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <ThemedText style={styles.emptyText}>Nenhum membro cadastrado.</ThemedText>
-              <TouchableOpacity style={styles.addButton} onPress={() => (navigation as any).navigate('addMember')}>
-                <ThemedText style={styles.addButtonText} lightColor="#fff" darkColor="#fff">Adicionar Membro</ThemedText>
-              </TouchableOpacity>
-            </View>
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadMembers();
+    setRefreshing(false);
+  };
+
+  const renderMemberCard = ({ item, index }: { item: Member; index: number }) => (
+    <AnimatedCard delay={index * 100} style={styles.memberCard}>
+      <TouchableOpacity
+        style={styles.memberCardContent}
+        onPress={() => item.id && (navigation as any).navigate('Dossiê do Membro', { id: item.id })}
+      >
+        <View style={styles.avatarContainer}>
+          {item.avatar_uri ? (
+            <Image source={{ uri: item.avatar_uri }} style={styles.avatar} />
           ) : (
-            <FlatList
-              data={members}
-              keyExtractor={(item) => item.id?.toString() || ''}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.memberCard}
-                  onPress={() => item.id && (navigation as any).navigate('Dossiê do Membro', { id: item.id })}
-                >
-                  <Image
-                    source={{ uri: item.avatar_uri || 'https://i.pravatar.cc/150?u=' + item.name }}
-                    style={styles.avatar}
-                  />
-                  <View style={styles.memberInfo}>
-                    <ThemedText style={styles.memberName} lightColor="#2d1155" darkColor="#2d1155">{item.name}</ThemedText>
-                    <ThemedText style={styles.memberRelation} lightColor="#2d1155" darkColor="#2d1155">{item.relation}</ThemedText>
-                  </View>
-                </TouchableOpacity>
-              )}
-              contentContainerStyle={styles.listContainer}
-            />
+            <View style={styles.avatarPlaceholder}>
+              <FontAwesome name="user" size={24} color="#b081ee" />
+            </View>
           )}
-        </>
+        </View>
+        
+        <View style={styles.memberInfo}>
+          <Text style={styles.memberName}>{item.name}</Text>
+          <Text style={styles.memberRelation}>{item.relation}</Text>
+          {item.dob && (
+            <Text style={styles.memberDob}>{t('birthDate')}: {item.dob}</Text>
+          )}
+        </View>
+        
+        <View style={styles.arrowContainer}>
+          <FontAwesome name="chevron-right" size={16} color="#8A8A8A" />
+        </View>
+      </TouchableOpacity>
+    </AnimatedCard>
+  );
+
+  const renderEmptyState = () => (
+    <AnimatedCard delay={200} style={styles.emptyContainer}>
+      <View style={styles.emptyIconContainer}>
+        <FontAwesome name="folder-open" size={60} color="#b081ee" />
+      </View>
+      <Text style={styles.emptyTitle}>{t('noMembersFound')}</Text>
+      <Text style={styles.emptyText}>
+        {t('addFamilyMembers')}
+      </Text>
+      <TouchableOpacity 
+        style={styles.addButton} 
+        onPress={() => (navigation as any).navigate('addMember')}
+      >
+        <FontAwesome name="plus" size={16} color="#fff" style={styles.addButtonIcon} />
+        <Text style={styles.addButtonText}>{t('addMember')}</Text>
+      </TouchableOpacity>
+    </AnimatedCard>
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{t('medicalDossier')}</Text>
+        <Text style={styles.headerSubtitle}>
+          {t('selectMemberDossier')}
+        </Text>
+      </View>
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#b081ee" />
+          <Text style={styles.loadingText}>{t('loadingMembers')}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={members}
+          keyExtractor={(item) => item.id?.toString() || ''}
+          renderItem={renderMemberCard}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#b081ee']}
+              tintColor="#b081ee"
+            />
+          }
+          ListEmptyComponent={renderEmptyState}
+        />
       )}
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F9F9F9',
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 15,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2d1155',
+    marginBottom: 5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#8A8A8A',
+    lineHeight: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: '#8A8A8A',
+  },
+  listContainer: {
     padding: 20,
+    paddingBottom: 40,
   },
   memberCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 12,
+    marginBottom: 15,
+    padding: 0,
+  },
+  memberCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
     elevation: 2,
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
   },
-  memberName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
+  avatarContainer: {
+    marginRight: 15,
   },
-  memberRelation: {
-    fontSize: 14,
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#b081ee',
   },
-  emptyText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  addButtonText: {
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  emptyContainer: {
-    flex: 1,
+  avatarPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#f0eaff',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  addButton: {
-    backgroundColor: '#b081ee',
-    padding: 15,
-    borderRadius: 10,
-  },
-  listContainer: {
-    padding: 10,
+    borderWidth: 2,
+    borderColor: '#b081ee',
+    borderStyle: 'dashed',
   },
   memberInfo: {
     flex: 1,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
+  memberName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2d1155',
+    marginBottom: 4,
+  },
+  memberRelation: {
+    fontSize: 14,
+    color: '#b081ee',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  memberDob: {
+    fontSize: 12,
+    color: '#8A8A8A',
+  },
+  arrowContainer: {
+    marginLeft: 10,
+  },
+  emptyContainer: {
+    marginTop: 60,
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyIconContainer: {
+    marginBottom: 20,
+    opacity: 0.7,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2d1155',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#8A8A8A',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 30,
+  },
+  addButton: {
+    backgroundColor: '#b081ee',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 25,
+    borderRadius: 12,
+    elevation: 3,
+    shadowColor: '#b081ee',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  addButtonIcon: {
+    marginRight: 8,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 }); 

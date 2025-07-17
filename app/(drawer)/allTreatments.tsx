@@ -1,12 +1,17 @@
 import { FontAwesome } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Animated, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Image, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { getAllMembers } from '../../db/members';
-import { getAllTreatments } from '../../db/memoryStorage';
+import { deleteTreatment, getAllTreatments } from '../../db/memoryStorage';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 import { useThemeColor } from '../../hooks/useThemeColor';
+
+type NavigationProp = {
+  navigate: (screen: string, params?: any) => void;
+  goBack: () => void;
+};
 
 interface Treatment {
   id: number;
@@ -23,10 +28,13 @@ interface Treatment {
 }
 
 export default function AllTreatmentsScreen() {
-  const router = useRouter();
+  const navigation = useNavigation<NavigationProp>();
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'todos' | 'ativos' | 'finalizados'>('todos');
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [treatmentToDelete, setTreatmentToDelete] = useState<Treatment | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const iconColor = useThemeColor({}, 'icon');
   const tintColor = useThemeColor({}, 'tint');
 
@@ -73,20 +81,20 @@ export default function AllTreatmentsScreen() {
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'ativo':
-        return '#4CAF50';
+        return '#10B981';
       case 'finalizado':
-        return '#FF9800';
+        return '#F59E0B';
       case 'pausado':
-        return '#F44336';
+        return '#EF4444';
       default:
-        return '#9E9E9E';
+        return '#6B7280';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
       case 'ativo':
-        return 'play-circle';
+        return 'circle';
       case 'finalizado':
         return 'check-circle';
       case 'pausado':
@@ -96,11 +104,52 @@ export default function AllTreatmentsScreen() {
     }
   };
 
+  const handleEditTreatment = (treatment: Treatment) => {
+    navigation.navigate('Novo Tratamento', { 
+      treatmentId: treatment.id,
+      mode: 'edit'
+    });
+  };
+
+  const handleViewTreatment = (treatment: Treatment) => {
+    navigation.navigate('Detalhes do Tratamento', { 
+      treatmentId: treatment.id
+    });
+  };
+
+  const handleDeleteTreatment = (treatment: Treatment) => {
+    setTreatmentToDelete(treatment);
+    setDeleteModalVisible(true);
+  };
+
+  const confirmDeleteTreatment = async () => {
+    if (!treatmentToDelete) return;
+    
+    setDeleting(true);
+    try {
+      await deleteTreatment(treatmentToDelete.id);
+      setTreatments(prev => prev.filter(t => t.id !== treatmentToDelete.id));
+      setDeleteModalVisible(false);
+      setTreatmentToDelete(null);
+    } catch (error) {
+      console.error('Erro ao excluir tratamento:', error);
+      Alert.alert('Erro', 'Não foi possível excluir o tratamento. Tente novamente.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteModalVisible(false);
+    setTreatmentToDelete(null);
+  };
+
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        style={{ flex: 1 }}
       >
         {/* Header com Filtros */}
         <Animated.View style={[styles.headerCard, { transform: [{ translateY: slideAnim }] }]}>
@@ -163,81 +212,103 @@ export default function AllTreatmentsScreen() {
                 </ThemedText>
               </Animated.View>
             ) : (
-              filteredTreatments.map((treatment, index) => (
-                <Animated.View 
-                  key={treatment.id} 
-                  style={[
-                    styles.treatmentCard, 
-                    { 
-                      transform: [{ 
-                        translateY: slideAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [50 + (index * 20), 0]
-                        })
-                      }] 
-                    }
-                  ]}
-                >
-                  <View style={styles.treatmentHeader}>
-                    <View style={styles.treatmentIconContainer}>
-                      <FontAwesome name="medkit" size={20} color="#b081ee" />
-                    </View>
-                    <View style={styles.treatmentTitleContainer}>
-                      <ThemedText style={styles.treatmentName}>
-                        {treatment.medication}
-                      </ThemedText>
-                      <ThemedText style={styles.treatmentMember}>
-                        {treatment.member_name}
-                      </ThemedText>
-                    </View>
-                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(treatment.status) }]}>
-                      <FontAwesome name={getStatusIcon(treatment.status)} size={12} color="#fff" />
-                      <ThemedText style={styles.statusText}>
-                        {treatment.status}
-                      </ThemedText>
-                    </View>
+              <View style={styles.tableWrapper}>
+                <Animated.View style={[
+                  styles.tableContainer, 
+                  { transform: [{ translateY: slideAnim }] }
+                ]}>
+                  {/* Cabeçalho da Tabela - Fixo */}
+                  <View style={styles.tableHeader}>
+                    <ThemedText style={[styles.headerCell, { flex: 1 }]}>Membro</ThemedText>
+                    <ThemedText style={[styles.headerCell, { flex: 2 }]}>Descrição</ThemedText>
+                    <ThemedText style={[styles.headerCell, { flex: 1 }]}>Status</ThemedText>
+                    <ThemedText style={[styles.headerCell, { flex: 1 }]}>Ações</ThemedText>
                   </View>
 
-                  <View style={styles.treatmentDetails}>
-                    <View style={styles.detailRow}>
-                      <FontAwesome name="calendar" size={14} color="#6c757d" />
-                      <ThemedText style={styles.detailText}>
-                        Início: {new Date(treatment.start_datetime).toLocaleDateString('pt-BR')}
-                      </ThemedText>
-                    </View>
-                    
-                    <View style={styles.detailRow}>
-                      <FontAwesome name="tint" size={14} color="#6c757d" />
-                      <ThemedText style={styles.detailText}>
-                        Dosagem: {treatment.dosage}
-                      </ThemedText>
-                    </View>
-                    
-                    <View style={styles.detailRow}>
-                      <FontAwesome name="clock-o" size={14} color="#6c757d" />
-                      <ThemedText style={styles.detailText}>
-                        Frequência: a cada {treatment.frequency_value} {treatment.frequency_unit}
-                      </ThemedText>
-                    </View>
-                    
-                    <View style={styles.detailRow}>
-                      <FontAwesome name="hourglass" size={14} color="#6c757d" />
-                      <ThemedText style={styles.detailText}>
-                        Duração: {treatment.duration}
-                      </ThemedText>
-                    </View>
-                    
-                    {treatment.notes && (
-                      <View style={styles.notesContainer}>
-                        <FontAwesome name="sticky-note-o" size={14} color="#6c757d" />
-                        <ThemedText style={styles.notesText}>
-                          {treatment.notes}
+                  {/* ScrollView para as linhas da tabela */}
+                  <ScrollView 
+                    style={styles.tableScrollView}
+                    showsVerticalScrollIndicator={true}
+                    contentContainerStyle={styles.tableScrollContent}
+                  >
+                    {filteredTreatments.map((treatment, index) => (
+                      <Animated.View 
+                        key={treatment.id} 
+                        style={[
+                          styles.tableRow, 
+                          { 
+                            transform: [{ 
+                              translateY: slideAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [30 + (index * 10), 0]
+                              })
+                            }] 
+                          }
+                        ]}
+                      >
+                                              <View style={[styles.cell, { flex: 1 }]}>
+                        <View style={styles.memberCell}>
+                          <Image 
+                            source={{ uri: `https://i.pravatar.cc/100?u=${treatment.member_name}` }}
+                            style={styles.memberAvatar}
+                          />
+                        </View>
+                      </View>
+                      
+                      <View style={[styles.cell, { flex: 2, paddingRight: 8 }]}>
+                        <ThemedText style={styles.medicationText}>
+                          <ThemedText style={styles.medicationName}>{treatment.medication}</ThemedText>
                         </ThemedText>
                       </View>
-                    )}
-                  </View>
+                        
+                        <View style={[styles.cell, { flex: 1 }]}>
+                                                  <View style={styles.statusCell}>
+                          <TouchableOpacity 
+                            style={styles.statusBadge}
+                            onPress={() => Alert.alert('Status', `Status: ${treatment.status}`)}
+                            activeOpacity={0.7}
+                          >
+                            <FontAwesome 
+                              name={getStatusIcon(treatment.status)} 
+                              size={12} 
+                              color={getStatusColor(treatment.status)} 
+                            />
+                          </TouchableOpacity>
+                        </View>
+                        </View>
+                        
+                        <View style={[styles.cell, { flex: 1 }]}>
+                          <View style={styles.actionIcons}>
+                            <TouchableOpacity 
+                              style={styles.actionIcon}
+                              onPress={() => handleViewTreatment(treatment)}
+                              activeOpacity={0.7}
+                            >
+                              <FontAwesome name="eye" size={16} color="#2196F3" />
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity 
+                              style={styles.actionIcon}
+                              onPress={() => handleEditTreatment(treatment)}
+                              activeOpacity={0.7}
+                            >
+                              <FontAwesome name="edit" size={16} color="#4CAF50" />
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity 
+                              style={styles.actionIcon}
+                              onPress={() => handleDeleteTreatment(treatment)}
+                              activeOpacity={0.7}
+                            >
+                              <FontAwesome name="trash" size={16} color="#F44336" />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </Animated.View>
+                    ))}
+                  </ScrollView>
                 </Animated.View>
-              ))
+              </View>
             )}
           </>
         )}
@@ -246,13 +317,62 @@ export default function AllTreatmentsScreen() {
         <Animated.View style={[styles.backButtonContainer, { transform: [{ translateY: slideAnim }] }]}>
           <TouchableOpacity 
             style={styles.backButton} 
-            onPress={() => router.back()}
+            onPress={() => navigation.goBack()}
             activeOpacity={0.8}
           >
             <FontAwesome name="arrow-left" size={16} color="#fff" style={styles.backButtonIcon} />
             <ThemedText style={styles.backButtonText}>Voltar</ThemedText>
           </TouchableOpacity>
         </Animated.View>
+
+        {/* Modal de Confirmação de Exclusão */}
+        <Modal
+          animationType="fade"
+          transparent
+          visible={deleteModalVisible}
+          onRequestClose={cancelDelete}
+        >
+          <Pressable style={styles.modalOverlay} onPress={cancelDelete}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <FontAwesome name="exclamation-triangle" size={24} color="#F44336" />
+                <ThemedText style={styles.modalTitle}>Confirmar Exclusão</ThemedText>
+              </View>
+              
+              <ThemedText style={styles.modalMessage}>
+                Tem certeza que deseja excluir o tratamento &quot;{treatmentToDelete?.medication}&quot;?
+              </ThemedText>
+              <ThemedText style={styles.modalSubMessage}>
+                Esta ação não pode ser desfeita.
+              </ThemedText>
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity 
+                  style={styles.cancelButton}
+                  onPress={cancelDelete}
+                  disabled={deleting}
+                >
+                  <ThemedText style={styles.cancelButtonText}>Cancelar</ThemedText>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.confirmButton, deleting && styles.confirmButtonDisabled]}
+                  onPress={confirmDeleteTreatment}
+                  disabled={deleting}
+                >
+                  {deleting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <FontAwesome name="trash" size={14} color="#fff" />
+                      <ThemedText style={styles.confirmButtonText}>Excluir</ThemedText>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Pressable>
+        </Modal>
       </ScrollView>
     </Animated.View>
   );
@@ -262,10 +382,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+    minHeight: '100%',
   },
   scrollContent: {
     padding: 20,
     paddingTop: 20,
+    paddingBottom: 100,
+    flexGrow: 1,
   },
   headerCard: {
     backgroundColor: '#fff',
@@ -299,12 +422,14 @@ const styles = StyleSheet.create({
   filterButton: {
     flex: 1,
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     borderRadius: 12,
     backgroundColor: '#f8f9fa',
     borderWidth: 1,
     borderColor: '#e9ecef',
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,
   },
   filterButtonActive: {
     backgroundColor: '#b081ee',
@@ -313,7 +438,9 @@ const styles = StyleSheet.create({
   filterButtonText: {
     color: '#6c757d',
     fontWeight: '500',
-    fontSize: 14,
+    fontSize: 13,
+    textAlign: 'center',
+    flexShrink: 1,
   },
   filterButtonTextActive: {
     color: '#fff',
@@ -362,88 +489,113 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  treatmentCard: {
+  tableWrapper: {
+    marginBottom: 16,
+    flex: 1,
+    minHeight: 300,
+    maxHeight: '60%',
+  },
+  tableContainer: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    padding: 28,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
+    flex: 1,
+    maxHeight: '90%',
   },
-  treatmentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  treatmentIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  treatmentTitleContainer: {
+  tableScrollView: {
     flex: 1,
   },
-  treatmentName: {
-    fontSize: 16,
+  tableScrollContent: {
+    paddingBottom: 16,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+    marginBottom: 12,
+  },
+  headerCell: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#2d1155',
-    marginBottom: 2,
+    flex: 1,
+    textAlign: 'left',
   },
-  treatmentMember: {
+  tableRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f3f4',
+    minHeight: 65,
+  },
+  cell: {
+    flex: 1,
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+    paddingVertical: 6,
+  },
+  medicationText: {
     fontSize: 14,
+    color: '#2d1155',
+    fontWeight: '500',
+    lineHeight: 18,
+    flexWrap: 'wrap',
+  },
+  medicationName: {
+    fontWeight: '600',
+    color: '#2d1155',
+  },
+  memberText: {
+    fontSize: 12,
     color: '#6c757d',
+    fontWeight: '400',
+  },
+  statusCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 32,
+  },
+  memberCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   statusBadge: {
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
+    justifyContent: 'center',
+    padding: 8,
+    borderRadius: 50,
+    backgroundColor: 'transparent',
+    minHeight: 32,
   },
-  statusText: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: '500',
-    textTransform: 'capitalize',
-  },
-  treatmentDetails: {
-    gap: 8,
-  },
-  detailRow: {
+
+  actionIcons: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    justifyContent: 'flex-end',
+    gap: 6,
   },
-  detailText: {
-    fontSize: 14,
-    color: '#2d1155',
-    flex: 1,
-  },
-  notesContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginTop: 4,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f3f4',
-  },
-  notesText: {
-    fontSize: 14,
-    color: '#2d1155',
-    flex: 1,
-    fontStyle: 'italic',
+  actionIcon: {
+    padding: 4,
+    borderRadius: 4,
+    backgroundColor: '#f8f9fa',
   },
   backButtonContainer: {
-    marginTop: 8,
+    marginTop: 24,
     marginBottom: 24,
   },
   backButton: {
@@ -467,5 +619,87 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#2d1155',
+    marginLeft: 12,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#2d1155',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalSubMessage: {
+    fontSize: 14,
+    color: '#6c757d',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  cancelButton: {
+    backgroundColor: '#e0e0e0',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    flex: 1,
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    color: '#2d1155',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmButton: {
+    backgroundColor: '#F44336',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    flex: 1,
+    marginLeft: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmButtonDisabled: {
+    backgroundColor: '#a5d6a7',
+    opacity: 0.7,
   },
 }); 

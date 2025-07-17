@@ -4,11 +4,13 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { AnimatedCard } from '../../components/AnimatedCard';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { addMember } from '../../db/memoryStorage';
 import { useEntranceAnimation } from '../../utils/animations';
 
 export default function AddMemberScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [relation, setRelation] = useState('');
   const [dob, setDob] = useState('');
@@ -67,7 +69,7 @@ export default function AddMemberScreen() {
 
   const handleSave = useCallback(async () => {
     if (!name.trim() || !relation.trim()) {
-      Alert.alert('Erro', 'Nome e relação são obrigatórios');
+      Alert.alert(t('error'), t('nameAndRelationRequired'));
       return;
     }
 
@@ -83,8 +85,8 @@ export default function AddMemberScreen() {
       });
 
       Alert.alert(
-        'Sucesso',
-        'Membro adicionado com sucesso!',
+        t('success'),
+        t('memberAddedSuccess'),
         [
           {
             text: 'OK',
@@ -96,11 +98,11 @@ export default function AddMemberScreen() {
         ]
       );
     } catch (error) {
-      Alert.alert('Erro', 'Erro ao adicionar membro');
+      Alert.alert(t('error'), t('errorSavingData'));
     } finally {
       setIsLoading(false);
     }
-  }, [name, relation, dob, notes, avatarUri, router, clearForm]);
+  }, [name, relation, dob, notes, avatarUri, router, clearForm, t]);
 
   const handleCancel = useCallback(() => {
     router.back();
@@ -123,18 +125,18 @@ export default function AddMemberScreen() {
                 <FontAwesome name="camera" size={20} color="white" />
               </View>
             </TouchableOpacity>
-            <Text style={styles.avatarText}>Toque para adicionar foto</Text>
+            <Text style={styles.avatarText}>{t('touchToAddPhoto')}</Text>
           </View>
         </AnimatedCard>
 
         <AnimatedCard delay={200} style={styles.formCard}>
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Nome Completo *</Text>
+            <Text style={styles.label}>{t('fullName')} *</Text>
             <View style={styles.inputWrapper}>
               <FontAwesome name="user" size={20} color="#8A8A8A" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Digite o nome completo"
+                placeholder={t('enterFullName')}
                 placeholderTextColor="#8A8A8A"
                 value={name}
                 onChangeText={setName}
@@ -143,12 +145,12 @@ export default function AddMemberScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Relação *</Text>
+            <Text style={styles.label}>{t('relation')} *</Text>
             <View style={styles.inputWrapper}>
               <FontAwesome name="heart" size={20} color="#8A8A8A" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Ex: Pai, Mãe, Filho, etc."
+                placeholder={t('enterRelation')}
                 placeholderTextColor="#8A8A8A"
                 value={relation}
                 onChangeText={setRelation}
@@ -157,12 +159,12 @@ export default function AddMemberScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Data de Nascimento</Text>
+            <Text style={styles.label}>{t('birthDate')}</Text>
             <View style={styles.inputWrapper}>
               <FontAwesome name="calendar" size={20} color="#8A8A8A" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="DD/MM/AAAA"
+                placeholder={t('enterBirthDate')}
                 placeholderTextColor="#8A8A8A"
                 value={dob}
                 onChangeText={handleDateChange}
@@ -173,12 +175,12 @@ export default function AddMemberScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Observações</Text>
-            <View style={styles.inputWrapper}>
-              <FontAwesome name="sticky-note" size={20} color="#8A8A8A" style={styles.inputIcon} />
+            <Text style={styles.label}>{t('notes')}</Text>
+            <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+              <FontAwesome name="sticky-note" size={20} color="#8A8A8A" style={styles.textAreaIcon} />
               <TextInput
                 style={[styles.input, styles.textArea]}
-                placeholder="Informações adicionais..."
+                placeholder={t('additionalInfo')}
                 placeholderTextColor="#8A8A8A"
                 value={notes}
                 onChangeText={setNotes}
@@ -192,10 +194,10 @@ export default function AddMemberScreen() {
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-            <Text style={styles.cancelButtonText}>Cancelar</Text>
+            <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Salvar</Text>
+            <Text style={styles.saveButtonText}>{t('save')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -297,33 +299,53 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
+  textAreaWrapper: {
+    alignItems: 'flex-start',
+  },
   textArea: {
     minHeight: 80,
     paddingTop: 8,
+  },
+  textAreaIcon: {
+    marginRight: 12,
+    marginTop: 8,
   },
   buttonContainer: {
     flexDirection: 'row',
     marginTop: 20,
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    gap: 8,
   },
   cancelButton: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    padding: 15,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     alignItems: 'center',
     flex: 1,
-    marginRight: 10,
+    marginRight: 8,
     borderWidth: 1,
     borderColor: '#b081ee',
+    shadowColor: '#b081ee',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
   },
   saveButton: {
     backgroundColor: '#b081ee',
-    borderRadius: 15,
-    padding: 15,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     alignItems: 'center',
     flex: 1,
-    marginLeft: 10,
+    marginLeft: 8,
+    shadowColor: '#b081ee',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   cancelButtonText: {
     fontWeight: 'bold',

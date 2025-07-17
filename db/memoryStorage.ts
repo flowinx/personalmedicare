@@ -93,6 +93,33 @@ function loadData() {
         documentIdCounter = counters.documentIdCounter || 1;
       }
     }
+    
+    // Corrigir IDs duplicados após carregar os dados
+    fixDuplicateIds();
+    
+    // Garantir que os contadores estejam sempre corretos
+    if (treatments.length > 0) {
+      const maxTreatmentId = Math.max(...treatments.map(t => t.id));
+      treatmentIdCounter = maxTreatmentId + 1;
+    } else {
+      treatmentIdCounter = 1;
+    }
+    
+    if (members.length > 0) {
+      const maxMemberId = Math.max(...members.map(m => m.id));
+      memberIdCounter = maxMemberId + 1;
+    } else {
+      memberIdCounter = 1;
+    }
+    
+    if (documents.length > 0) {
+      const maxDocumentId = Math.max(...documents.map(d => d.id));
+      documentIdCounter = maxDocumentId + 1;
+    } else {
+      documentIdCounter = 1;
+    }
+    
+    console.log('Counters initialized:', { memberIdCounter, treatmentIdCounter, documentIdCounter });
   } catch (error) {
     console.warn('Could not load from localStorage:', error);
   }
@@ -101,8 +128,16 @@ function loadData() {
 // Funções para membros
 export async function initMembersDB(): Promise<void> {
   try {
+    console.log('initMembersDB called');
     loadData();
     console.log('Memory storage initialized');
+    console.log('Initial state:', {
+      membersCount: members.length,
+      treatmentsCount: treatments.length,
+      documentsCount: documents.length,
+      counters: { memberIdCounter, treatmentIdCounter, documentIdCounter }
+    });
+    console.log('Members array after loadData:', members);
   } catch (error) {
     console.error('Error initializing members DB:', error);
     throw error;
@@ -127,7 +162,11 @@ export async function addMember(member: Omit<Member, 'id'>): Promise<number> {
 
 export async function getAllMembers(): Promise<Member[]> {
   try {
-    return members.sort((a, b) => a.name.localeCompare(b.name));
+    console.log('getAllMembers called, current members array:', members);
+    console.log('Members count:', members.length);
+    const sortedMembers = members.sort((a, b) => a.name.localeCompare(b.name));
+    console.log('Sorted members:', sortedMembers);
+    return sortedMembers;
   } catch (error) {
     console.error('Error getting all members:', error);
     throw error;
@@ -221,11 +260,17 @@ export async function updateProfile(data: { name: string; email: string; avatar_
 // Funções para tratamentos
 export async function addTreatment(treatment: Omit<Treatment, 'id'>): Promise<number> {
   try {
+    console.log('Adding treatment, current counter:', treatmentIdCounter);
+    console.log('Existing treatments:', treatments.map(t => t.id));
+    
     const newId = treatmentIdCounter++;
     const newTreatment: Treatment = { ...treatment, id: newId };
     
     treatments.push(newTreatment);
     saveData();
+    
+    console.log('Treatment added successfully with ID:', newId);
+    console.log('Updated treatments:', treatments.map(t => t.id));
     
     return newId;
   } catch (error) {
@@ -236,7 +281,12 @@ export async function addTreatment(treatment: Omit<Treatment, 'id'>): Promise<nu
 
 export async function getAllTreatments(): Promise<Treatment[]> {
   try {
-    return treatments.sort((a, b) => new Date(b.start_datetime).getTime() - new Date(a.start_datetime).getTime());
+    // Garantir que não há IDs duplicados antes de retornar
+    const uniqueTreatments = treatments.filter((treatment, index, self) => 
+      index === self.findIndex(t => t.id === treatment.id)
+    );
+    
+    return uniqueTreatments.sort((a, b) => new Date(b.start_datetime).getTime() - new Date(a.start_datetime).getTime());
   } catch (error) {
     console.error('Error getting all treatments:', error);
     throw error;
@@ -248,6 +298,48 @@ export async function getTreatmentsByMemberId(memberId: number): Promise<Treatme
     return treatments.filter(treatment => treatment.member_id === memberId);
   } catch (error) {
     console.error('Error getting treatments by member id:', error);
+    throw error;
+  }
+}
+
+export async function getTreatmentById(id: number): Promise<Treatment | null> {
+  try {
+    return treatments.find(treatment => treatment.id === id) || null;
+  } catch (error) {
+    console.error('Error getting treatment by id:', error);
+    throw error;
+  }
+}
+
+export async function updateTreatment(id: number, treatment: Omit<Treatment, 'id'>): Promise<void> {
+  try {
+    const index = treatments.findIndex(t => t.id === id);
+    if (index !== -1) {
+      treatments[index] = { ...treatment, id };
+      saveData();
+      console.log('Treatment updated successfully:', treatments[index]);
+    } else {
+      throw new Error(`Treatment with id ${id} not found`);
+    }
+  } catch (error) {
+    console.error('Error updating treatment:', error);
+    throw error;
+  }
+}
+
+export async function deleteTreatment(id: number): Promise<void> {
+  try {
+    const index = treatments.findIndex(t => t.id === id);
+    if (index !== -1) {
+      const deletedTreatment = treatments[index];
+      treatments = treatments.filter(treatment => treatment.id !== id);
+      saveData();
+      console.log('Treatment deleted successfully:', deletedTreatment);
+    } else {
+      throw new Error(`Treatment with id ${id} not found`);
+    }
+  } catch (error) {
+    console.error('Error deleting treatment:', error);
     throw error;
   }
 }
@@ -274,6 +366,35 @@ export async function getDocumentsByMemberId(memberId: number): Promise<Document
   } catch (error) {
     console.error('Error getting documents by member id:', error);
     throw error;
+  }
+}
+
+// Função para corrigir IDs duplicados
+function fixDuplicateIds() {
+  try {
+    // Corrigir IDs de tratamentos
+    const treatmentIds = new Set<number>();
+    treatments = treatments.map((treatment, index) => {
+      if (treatmentIds.has(treatment.id)) {
+        // ID duplicado encontrado, gerar novo ID
+        const newId = treatmentIdCounter++;
+        console.log(`Fixing duplicate treatment ID: ${treatment.id} -> ${newId}`);
+        return { ...treatment, id: newId };
+      } else {
+        treatmentIds.add(treatment.id);
+        return treatment;
+      }
+    });
+
+    // Atualizar o contador para o próximo ID
+    if (treatments.length > 0) {
+      const maxId = Math.max(...treatments.map(t => t.id));
+      treatmentIdCounter = maxId + 1;
+    }
+
+    console.log('Duplicate IDs fixed successfully');
+  } catch (error) {
+    console.error('Error fixing duplicate IDs:', error);
   }
 }
 

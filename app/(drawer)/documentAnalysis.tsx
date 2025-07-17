@@ -8,6 +8,7 @@ import { Member, getAllMembers } from '../../db/members';
 import { saveDocument } from '../../db/memoryStorage';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 import { extractTextFromDocument } from '../../services/documentParser';
+import { analyzeDocument } from '../../services/groq';
 
 export default function DocumentAnalysisScreen() {
   const [document, setDocument] = useState<DocumentPicker.DocumentPickerResult | null>(null);

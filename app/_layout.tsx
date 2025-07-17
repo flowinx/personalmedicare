@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { LanguageProvider } from '../contexts/LanguageContext';
 import { ProfileProvider } from '../contexts/ProfileContext';
 import { initDatabase } from '../db/index';
 import { ThemeProvider } from '../theme/ThemeContext';
@@ -47,9 +48,11 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <ProfileProvider>
-        <RootLayoutNav />
-      </ProfileProvider>
+      <LanguageProvider>
+        <ProfileProvider>
+          <RootLayoutNav />
+        </ProfileProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

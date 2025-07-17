@@ -1,15 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useContext, useEffect, useState } from 'react';
-import { Animated, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
+import { Language } from '../../constants/translations';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { ThemeContext } from '../../theme/ThemeContext';
 
 export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const { colorScheme, setColorScheme } = useContext(ThemeContext);
+  const { language, setLanguage, t } = useLanguage();
   const darkTheme = colorScheme === 'dark';
   const iconColor = useThemeColor({}, 'icon');
   const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
@@ -21,6 +25,64 @@ export default function SettingsScreen() {
   const handleThemeSwitch = (value: boolean) => {
     setColorScheme(value ? 'dark' : 'light');
   };
+
+  const handleLanguageSelect = (selectedLanguage: Language) => {
+    setLanguage(selectedLanguage);
+    setLanguageModalVisible(false);
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      t('logout'),
+      'Tem certeza que deseja sair?',
+      [
+        { text: t('cancel'), style: 'cancel' },
+        { text: t('logout'), style: 'destructive' },
+      ]
+    );
+  };
+
+  const LanguageModal = () => (
+    <Modal
+      visible={languageModalVisible}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setLanguageModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <ThemedText style={styles.modalTitle} lightColor="#2d1155" darkColor="#2d1155">
+              {t('language')}
+            </ThemedText>
+            <TouchableOpacity onPress={() => setLanguageModalVisible(false)}>
+              <Ionicons name="close" size={24} color="#8A8A8A" />
+            </TouchableOpacity>
+          </View>
+          
+          <TouchableOpacity
+            style={[styles.languageOption, language === 'pt-BR' && styles.selectedLanguage]}
+            onPress={() => handleLanguageSelect('pt-BR')}
+          >
+            <ThemedText style={[styles.languageText, language === 'pt-BR' && styles.selectedLanguageText]}>
+              {t('portuguese')}
+            </ThemedText>
+            {language === 'pt-BR' && <Ionicons name="checkmark" size={20} color="#b081ee" />}
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.languageOption, language === 'en' && styles.selectedLanguage]}
+            onPress={() => handleLanguageSelect('en')}
+          >
+            <ThemedText style={[styles.languageText, language === 'en' && styles.selectedLanguageText]}>
+              {t('english')}
+            </ThemedText>
+            {language === 'en' && <Ionicons name="checkmark" size={20} color="#b081ee" />}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 
   return (
     <KeyboardAvoidingView
@@ -36,28 +98,30 @@ export default function SettingsScreen() {
           {/* Header Card */}
           <Animated.View style={[styles.headerCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
             <Ionicons name="settings-outline" size={28} color="#2d1155" style={styles.headerIcon} />
-            <ThemedText style={styles.headerTitle} lightColor="#2d1155" darkColor="#2d1155">Configurações</ThemedText>
+            <ThemedText style={styles.headerTitle} lightColor="#2d1155" darkColor="#2d1155">{t('settings')}</ThemedText>
           </Animated.View>
 
           {/* General Settings Card */}
           <Animated.View style={[styles.settingsCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            <ThemedText style={styles.cardTitle} lightColor="#2d1155" darkColor="#2d1155">Geral</ThemedText>
+            <ThemedText style={styles.cardTitle} lightColor="#2d1155" darkColor="#2d1155">{t('general')}</ThemedText>
             
-            <View style={styles.settingItem}>
+            <TouchableOpacity style={styles.settingItem} onPress={() => setLanguageModalVisible(true)}>
               <View style={styles.settingLeft}>
                 <Ionicons name="language-outline" size={20} color="#8A8A8A" style={styles.settingIcon} />
-                <ThemedText style={styles.settingLabel} lightColor="#2d1155" darkColor="#2d1155">Idioma</ThemedText>
+                <ThemedText style={styles.settingLabel} lightColor="#2d1155" darkColor="#2d1155">{t('language')}</ThemedText>
               </View>
-              <TouchableOpacity style={styles.optionButton}>
-                <ThemedText style={styles.optionText} lightColor="#2d1155" darkColor="#2d1155">Português (Brasil)</ThemedText>
+              <View style={styles.optionButton}>
+                <ThemedText style={styles.optionText} lightColor="#2d1155" darkColor="#2d1155">
+                  {language === 'pt-BR' ? t('portuguese') : t('english')}
+                </ThemedText>
                 <Ionicons name="chevron-forward" size={16} color="#8A8A8A" />
-              </TouchableOpacity>
-            </View>
+              </View>
+            </TouchableOpacity>
 
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
                 <Ionicons name="notifications-outline" size={20} color="#8A8A8A" style={styles.settingIcon} />
-                <ThemedText style={styles.settingLabel} lightColor="#2d1155" darkColor="#2d1155">Notificações</ThemedText>
+                <ThemedText style={styles.settingLabel} lightColor="#2d1155" darkColor="#2d1155">{t('notifications')}</ThemedText>
               </View>
               <Switch
                 value={notificationsEnabled}
@@ -70,7 +134,7 @@ export default function SettingsScreen() {
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
                 <Ionicons name="moon-outline" size={20} color="#8A8A8A" style={styles.settingIcon} />
-                <ThemedText style={styles.settingLabel} lightColor="#2d1155" darkColor="#2d1155">Tema Escuro</ThemedText>
+                <ThemedText style={styles.settingLabel} lightColor="#2d1155" darkColor="#2d1155">{t('darkTheme')}</ThemedText>
               </View>
               <Switch
                 value={darkTheme}
@@ -83,12 +147,12 @@ export default function SettingsScreen() {
 
           {/* Information Card */}
           <Animated.View style={[styles.settingsCard, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-            <ThemedText style={styles.cardTitle} lightColor="#2d1155" darkColor="#2d1155">Informações</ThemedText>
+            <ThemedText style={styles.cardTitle} lightColor="#2d1155" darkColor="#2d1155">{t('information')}</ThemedText>
             
             <TouchableOpacity style={styles.settingItem}>
               <View style={styles.settingLeft}>
                 <Ionicons name="information-circle-outline" size={20} color="#8A8A8A" style={styles.settingIcon} />
-                <ThemedText style={styles.settingLabel} lightColor="#2d1155" darkColor="#2d1155">Sobre o App</ThemedText>
+                <ThemedText style={styles.settingLabel} lightColor="#2d1155" darkColor="#2d1155">{t('aboutApp')}</ThemedText>
               </View>
               <Ionicons name="chevron-forward" size={16} color="#8A8A8A" />
             </TouchableOpacity>
@@ -96,7 +160,7 @@ export default function SettingsScreen() {
             <TouchableOpacity style={styles.settingItem}>
               <View style={styles.settingLeft}>
                 <Ionicons name="document-text-outline" size={20} color="#8A8A8A" style={styles.settingIcon} />
-                <ThemedText style={styles.settingLabel} lightColor="#2d1155" darkColor="#2d1155">Política de Privacidade</ThemedText>
+                <ThemedText style={styles.settingLabel} lightColor="#2d1155" darkColor="#2d1155">{t('privacyPolicy')}</ThemedText>
               </View>
               <Ionicons name="chevron-forward" size={16} color="#8A8A8A" />
             </TouchableOpacity>
@@ -104,12 +168,14 @@ export default function SettingsScreen() {
 
           {/* Logout Card */}
           <Animated.View style={[styles.logoutCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            <TouchableOpacity style={styles.logoutButton}>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={20} color="#fff" style={styles.logoutIcon} />
-              <ThemedText style={styles.logoutText} lightColor="#fff" darkColor="#fff">Sair</ThemedText>
+              <ThemedText style={styles.logoutText} lightColor="#fff" darkColor="#fff">{t('logout')}</ThemedText>
             </TouchableOpacity>
           </Animated.View>
         </ScrollView>
+        
+        <LanguageModal />
       </ThemedView>
     </KeyboardAvoidingView>
   );
@@ -213,6 +279,52 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: 16,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    width: '80%',
+    maxWidth: 300,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  languageOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: '#f8f8f8',
+  },
+  selectedLanguage: {
+    backgroundColor: '#f0eaff',
+    borderWidth: 1,
+    borderColor: '#b081ee',
+  },
+  languageText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  selectedLanguageText: {
+    color: '#b081ee',
     fontWeight: '600',
   },
 }); 

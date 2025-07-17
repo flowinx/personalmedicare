@@ -2,12 +2,13 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useState } from 'react';
-import { Animated, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ThemedText } from '../../components/ThemedText';
+import { Animated, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedView } from '../../components/ThemedView';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { Member, getAllMembers } from '../../db/members';
+import { Treatment, getAllTreatments } from '../../db/memoryStorage';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
-import { useThemeColor } from '../../hooks/useThemeColor';
+const logo = require('../../assets/images/logo.png');
 
 type NavigationProp = {
   navigate: (screen: keyof RootStackParamList, params?: any) => void;
@@ -15,13 +16,14 @@ type NavigationProp = {
 
 type RootStackParamList = {
   'Cadastrar Membro': undefined;
-  'Novo Tratamento': undefined;
+  'Novo Tratamento': { treatmentId?: number; mode?: string } | undefined;
   'Tratamentos': undefined;
   'Detalhes do Membro': { id: number };
+  'Detalhes do Tratamento': { treatmentId: number };
 };
 
 interface ScheduleItem {
-  id: number; // schedule id
+  id: string; // schedule id - string para garantir unicidade
   scheduled_time: string;
   status: 'pendente' | 'tomado';
   treatment_id: number;
@@ -32,13 +34,14 @@ interface ScheduleItem {
 }
 
 interface Alert {
-  id: number;
+  id: string;
   mensagem: string;
   lido: boolean;
 }
 
 export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { t } = useLanguage();
   const [members, setMembers] = useState<Member[]>([]);
   const [todaysSchedule, setTodaysSchedule] = useState<ScheduleItem[]>([]);
   const [search, setSearch] = useState('');
@@ -50,6 +53,56 @@ export default function HomeScreen() {
     startAnimation();
   }, [startAnimation]);
 
+  // Função para gerar horários baseados na frequência do tratamento
+  const generateScheduleForToday = (treatment: Treatment, member: Member): ScheduleItem[] => {
+    const today = new Date();
+    const startDate = new Date(treatment.start_datetime);
+    
+    // Se o tratamento ainda não começou, não aparece na agenda de hoje
+    if (startDate > today) {
+      return [];
+    }
+
+    const scheduleItems: ScheduleItem[] = [];
+    const frequencyHours = treatment.frequency_unit === 'horas' ? treatment.frequency_value : treatment.frequency_value * 24;
+    
+    // Gera horários para hoje baseado na frequência
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+    
+    let currentTime = new Date(startDate);
+    
+    // Se o tratamento começou antes de hoje, calcula o próximo horário baseado na frequência
+    if (currentTime < todayStart) {
+      // Calcula quantos horários já passaram desde o início do tratamento
+      const timeDiff = todayStart.getTime() - currentTime.getTime();
+      const frequencyMs = frequencyHours * 60 * 60 * 1000;
+      const periodsPassed = Math.floor(timeDiff / frequencyMs) + 1;
+      
+      // Calcula o próximo horário baseado na frequência
+      currentTime = new Date(currentTime.getTime() + (periodsPassed * frequencyMs));
+    }
+    
+    // Gera horários até o final do dia
+    while (currentTime <= todayEnd) {
+      scheduleItems.push({
+        id: `${treatment.id}_${currentTime.getTime()}`, // ID único baseado no tratamento e horário
+        scheduled_time: currentTime.toISOString(),
+        status: 'pendente',
+        treatment_id: treatment.id,
+        medication: treatment.medication,
+        dosage: treatment.dosage,
+        member_name: member.name,
+        member_avatar_uri: member.avatar_uri || '',
+      });
+      
+      // Avança para o próximo horário
+      currentTime = new Date(currentTime.getTime() + (frequencyHours * 60 * 60 * 1000));
+    }
+    
+    return scheduleItems;
+  };
+
   useFocusEffect(
     useCallback(() => {
       const fetchData = async () => {
@@ -58,14 +111,26 @@ export default function HomeScreen() {
           const allMembers = await getAllMembers();
           setMembers(allMembers);
 
-          // Fetch Today's Schedule - usando o novo sistema de memória
-          const today = new Date();
-          const todayStart = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-          const todayEnd = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+          // Fetch Treatments
+          const allTreatments = await getAllTreatments();
+          console.log('[HomeScreen] All treatments:', allTreatments);
 
-          // Por enquanto, vamos usar uma agenda simulada até implementarmos o sistema de schedule
-          const mockScheduleItems: ScheduleItem[] = [];
-          setTodaysSchedule(mockScheduleItems);
+          // Gera agenda de hoje baseada nos tratamentos
+          const todaySchedule: ScheduleItem[] = [];
+          
+          for (const treatment of allTreatments) {
+            const member = allMembers.find(m => m.id === treatment.member_id);
+            if (member && treatment.status === 'ativo') {
+              const scheduleItems = generateScheduleForToday(treatment, member);
+              todaySchedule.push(...scheduleItems);
+            }
+          }
+          
+          // Ordena por horário
+          todaySchedule.sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
+          
+          console.log('[HomeScreen] Today schedule generated:', todaySchedule);
+          setTodaysSchedule(todaySchedule);
 
         } catch (error) {
           console.error("Failed to fetch data:", error);
@@ -101,7 +166,7 @@ export default function HomeScreen() {
     });
   }, [todaysSchedule]);
 
-  const handleMarkAsDone = async (scheduleId: number) => {
+  const handleMarkAsDone = async (scheduleId: string) => {
     try {
       // Por enquanto, apenas atualizamos o estado local
       setTodaysSchedule(prevSchedule => 
@@ -114,6 +179,19 @@ export default function HomeScreen() {
     }
   };
 
+  const handleViewTreatment = (item: ScheduleItem) => {
+    // Navegar para detalhes do tratamento específico
+    navigation.navigate('Detalhes do Tratamento', { treatmentId: item.treatment_id });
+  };
+
+  const handleEditTreatment = (item: ScheduleItem) => {
+    // Navegar para edição do tratamento específico
+    navigation.navigate('Novo Tratamento', { 
+      treatmentId: item.treatment_id,
+      mode: 'edit'
+    });
+  };
+
   const memberCardColors = ['#E6E0FF', '#FFE0E0', '#D4F5E1', '#FFF3D4'];
 
   // Filtra a agenda pelo nome do medicamento
@@ -123,135 +201,208 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Animated.View style={[styles.headerCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-        <View style={styles.header}>
-          <View style={styles.userInfo}>
-            <Image
-              source={require('../../assets/images/medica-avatar.png')}
-              style={styles.avatar}
-            />
-            <View>
-              <ThemedText style={styles.greeting}>Olá, Marcos!</ThemedText>
-              <ThemedText style={styles.subGreeting}>Como você está hoje?</ThemedText>
+      {/* Header com logo e sininho */}
+      <Animated.View style={[styles.topBar, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}> 
+        <View style={styles.logoContainer}>
+          <View style={styles.logoWrapper}>
+            <View style={styles.logoIconContainer}>
+              <Image source={logo} style={styles.logoImage} resizeMode="contain" />
             </View>
-          </View>
-          <TouchableOpacity onPress={() => setShowAlerts(true)} style={{ position: 'relative' }}>
-            <Ionicons name="notifications-outline" size={28} color={useThemeColor({}, 'icon')} />
-            {alerts.some(a => !a.lido) && (
-              <View style={{ position: 'absolute', top: 2, right: 2, backgroundColor: 'red', borderRadius: 8, width: 16, height: 16, justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>{alerts.filter(a => !a.lido).length}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.searchContainer}> 
-          <View style={styles.searchBar}>
-            <FontAwesome name="search" size={20} color="#8A8A8A" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar Medicamento"
-              placeholderTextColor="#8A8A8A"
-              value={search}
-              onChangeText={setSearch}
-            />
+            <Text style={styles.logoText}>Personal MediCare</Text>
           </View>
         </View>
+        <TouchableOpacity 
+          style={styles.notificationButton}
+          onPress={() => setShowAlerts(true)}
+        >
+          <Ionicons name="notifications-outline" size={28} color="#2d1155" />
+          {alerts.length > 0 && (
+            <View style={styles.alertBadge}>
+              <Text style={styles.alertBadgeText}>{alerts.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </Animated.View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <Animated.View style={[styles.sectionCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Barra de busca */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#8A8A8A" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar medicamentos..."
+            placeholderTextColor="#8A8A8A"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+
+        {/* Agenda de Hoje */}
+        <Animated.View style={[styles.section, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <Ionicons name="calendar-outline" size={24} color="#b081ee" style={styles.sectionIcon} />
-              <ThemedText style={styles.sectionTitle}>Agenda de Hoje</ThemedText>
-            </View>
+            <Text style={styles.sectionTitle}>{t('todayAgenda')}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Tratamentos')}>
-              <ThemedText style={styles.seeAll}>Ver Todos</ThemedText>
+              <Text style={styles.viewAllText}>{t('viewAll')}</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.treatmentList}>
-            {filteredSchedule.length === 0 && (
-              <View style={styles.emptyState}>
-                <Ionicons name="checkmark-circle-outline" size={48} color="#b081ee" />
-                <ThemedText style={styles.emptyStateText}>Nenhuma dose agendada para hoje.</ThemedText>
-              </View>
-            )}
-            {filteredSchedule.map((item) => (
-              <View key={item.id} style={[styles.treatmentItem, item.status === 'tomado' && styles.treatmentItemDone]}>
-                <Image 
-                  source={{ uri: item.member_avatar_uri || `https://i.pravatar.cc/100?u=${item.member_name}` }}
-                  style={styles.treatmentAvatar}
-                />
-                <View style={{ flex: 1 }}>
-                  <ThemedText style={[styles.treatmentName, item.status === 'tomado' && styles.treatmentTextDone]} lightColor="#2d1155" darkColor="#2d1155">
-                    {item.medication}
-                  </ThemedText>
-                  <ThemedText style={[styles.treatmentTime, item.status === 'tomado' && styles.treatmentTextDone]} lightColor="#2d1155" darkColor="#2d1155">
-                    {item.dosage} • {new Date(item.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </ThemedText>
+
+          {filteredSchedule.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="calendar-outline" size={48} color="#8A8A8A" />
+              <Text style={styles.emptyText}>{t('noTreatmentsToday')}</Text>
+            </View>
+          ) : (
+            <View style={styles.scheduleContainer}>
+              <View style={styles.tableHeader}>
+                <View style={styles.headerMember}>
+                  <Text style={styles.headerText}>{t('members')}</Text>
                 </View>
-                {item.status === 'pendente' && (
-                    <TouchableOpacity style={{ marginHorizontal: 8 }} onPress={() => handleMarkAsDone(item.id)}>
-                        <FontAwesome name="check-circle-o" size={24} color="#34C759" />
-                    </TouchableOpacity>
-                )}
-                {item.status === 'tomado' && (
-                    <FontAwesome name="check-circle" size={24} color="#34C759" style={{ opacity: 0.5, marginHorizontal: 8 }} />
-                )}
+                <View style={styles.headerMedication}>
+                  <Text style={styles.headerText}>{t('medication')}</Text>
+                </View>
+                <View style={styles.headerTime}>
+                  <Text style={styles.headerText}>{t('startTime')}</Text>
+                </View>
+                <View style={styles.headerActions}>
+                  <Text style={styles.headerText}>{t('actions')}</Text>
+                </View>
               </View>
-            ))}
-          </View>
+
+              <ScrollView style={styles.tableContent} showsVerticalScrollIndicator={false}>
+                {filteredSchedule.map((item, index) => (
+                  <View key={item.id} style={styles.tableRow}>
+                    <View style={styles.cellMember}>
+                      <View style={styles.memberInfo}>
+                        {item.member_avatar_uri ? (
+                          <Image source={{ uri: item.member_avatar_uri }} style={styles.memberAvatar} />
+                        ) : (
+                          <View style={styles.memberAvatarPlaceholder}>
+                            <FontAwesome name="user" size={12} color="#b081ee" />
+                          </View>
+                        )}
+                        <Text style={styles.memberName} numberOfLines={1}>{item.member_name}</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.cellMedication}>
+                      <Text style={styles.medicationText} numberOfLines={2}>
+                        <Text style={styles.medicationName}>{item.medication}</Text>
+                        {item.dosage && (
+                          <Text style={styles.dosageText}> - {item.dosage}</Text>
+                        )}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.cellTime}>
+                      <Text style={styles.timeText}>
+                        {new Date(item.scheduled_time).toLocaleTimeString([], { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.cellActions}>
+                      <TouchableOpacity 
+                        style={styles.actionButton} 
+                        onPress={() => handleViewTreatment(item)}
+                      >
+                        <FontAwesome name="eye" size={14} color="#b081ee" />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.actionButton} 
+                        onPress={() => handleEditTreatment(item)}
+                      >
+                        <FontAwesome name="edit" size={14} color="#b081ee" />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.actionButton, item.status === 'tomado' && styles.actionButtonDone]} 
+                        onPress={() => handleMarkAsDone(item.id)}
+                      >
+                        <FontAwesome 
+                          name={item.status === 'tomado' ? 'check' : 'circle-o'} 
+                          size={14} 
+                          color={item.status === 'tomado' ? '#fff' : '#b081ee'} 
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </Animated.View>
 
-        <Animated.View style={[styles.sectionCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        {/* Membros da Família */}
+        <Animated.View style={[styles.section, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
           <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <Ionicons name="people-outline" size={24} color="#b081ee" style={styles.sectionIcon} />
-              <ThemedText style={styles.sectionTitle}>Membros da Família</ThemedText>
-            </View>
+            <Text style={styles.sectionTitle}>{t('familyMembers')}</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Cadastrar Membro')}>
+              <Text style={styles.viewAllText}>{t('addMember')}</Text>
+            </TouchableOpacity>
           </View>
-          <View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+
+          {members.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="people-outline" size={48} color="#8A8A8A" />
+              <Text style={styles.emptyText}>{t('noMembers')}</Text>
+            </View>
+          ) : (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.membersContainer}
+            >
               {members.map((member, index) => (
-                <Pressable
+                <TouchableOpacity
                   key={member.id}
-                  style={({ pressed }) => [styles.memberCard, {backgroundColor: memberCardColors[index % memberCardColors.length]}, pressed && { opacity: 0.8 }]}
-                  onPress={() => member.id && navigation.navigate('Detalhes do Membro', { id: member.id })}
+                  style={[styles.memberCard, { backgroundColor: memberCardColors[index % memberCardColors.length] }]}
+                  onPress={() => navigation.navigate('Detalhes do Membro', { id: member.id! })}
                 >
-                  <Image source={{ uri: member.avatar_uri || 'https://i.pravatar.cc/150?u=' + member.name }} style={styles.memberAvatar} />
-                  <ThemedText style={styles.memberName} lightColor="#2d1155" darkColor="#2d1155">{member.name}</ThemedText>
-                  <ThemedText style={styles.memberRelation} lightColor="#2d1155" darkColor="#2d1155">{member.relation}</ThemedText>
-                </Pressable>
+                  {member.avatar_uri ? (
+                    <Image source={{ uri: member.avatar_uri }} style={styles.memberCardAvatar} />
+                  ) : (
+                    <View style={styles.memberCardAvatarPlaceholder}>
+                      <FontAwesome name="user" size={24} color="#b081ee" />
+                    </View>
+                  )}
+                  <Text style={styles.memberCardName} numberOfLines={1}>{member.name}</Text>
+                  <Text style={styles.memberCardRelation} numberOfLines={1}>{member.relation}</Text>
+                </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
+          )}
         </Animated.View>
       </ScrollView>
 
       {/* Modal de Alertas */}
-      <Modal visible={showAlerts} animationType="slide" transparent onRequestClose={() => setShowAlerts(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ backgroundColor: 'white', borderRadius: 16, padding: 24, minWidth: 280, maxWidth: 340 }}>
-            <ThemedText style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 12 }}>Alertas</ThemedText>
-            {alerts.length === 0 && <ThemedText style={{ color: '#888' }}>Nenhum alerta no momento.</ThemedText>}
-            {alerts.map(alerta => (
-              <View key={alerta.id} style={{ marginBottom: 10 }}>
-                <ThemedText style={{ fontSize: 14 }}>{alerta.mensagem}</ThemedText>
-              </View>
-            ))}
-            <TouchableOpacity 
-              style={{ 
-                backgroundColor: '#b081ee', 
-                padding: 12, 
-                borderRadius: 8, 
-                marginTop: 16,
-                alignItems: 'center'
-              }} 
-              onPress={() => setShowAlerts(false)}
-            >
-              <ThemedText style={{ color: 'white', fontWeight: 'bold' }}>Fechar</ThemedText>
-            </TouchableOpacity>
+      <Modal
+        visible={showAlerts}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAlerts(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Alertas</Text>
+              <TouchableOpacity onPress={() => setShowAlerts(false)}>
+                <Ionicons name="close" size={24} color="#8A8A8A" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.alertsList}>
+              {alerts.length === 0 ? (
+                <Text style={styles.noAlertsText}>Nenhum alerta pendente</Text>
+              ) : (
+                alerts.map((alert) => (
+                  <View key={alert.id} style={styles.alertItem}>
+                    <Ionicons name="warning" size={20} color="#ff6b6b" />
+                    <Text style={styles.alertText}>{alert.mensagem}</Text>
+                  </View>
+                ))
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -262,74 +413,79 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 60,
+    paddingTop: 0,
   },
-  headerCard: {
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 16,
-    padding: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+  scrollView: {
+    flex: 1,
   },
-  header: {
+  topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+    zIndex: 1,
   },
-  userInfo: {
+  logoContainer: {
+    flex: 1,
+  },
+  logoWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 15,
+  logoIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: '#e9ecef',
   },
-  greeting: {
+  logoImage: {
+    width: 24,
+    height: 24,
+  },
+  logoText: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#2d1155',
+    letterSpacing: 0.5,
   },
-  subGreeting: {
-    fontSize: 14,
-    color: '#666',
+  logo: {
+    width: 120,
+    height: 40,
   },
-  searchContainer: {
-    flexDirection: 'row',
+  notificationButton: {
+    position: 'relative',
+    padding: 5,
+  },
+  alertBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: 'red',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  searchBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 15,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
+  alertBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
-  searchInput: {
-    marginLeft: 10,
-    fontSize: 16,
-    flex: 1,
-    color: '#333'
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  sectionCard: {
+  section: {
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
+    marginHorizontal: 12,
     marginBottom: 20,
     elevation: 3,
     shadowColor: '#000',
@@ -343,31 +499,151 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
-  sectionTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sectionIcon: {
-    marginRight: 8,
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2d1155',
   },
-  seeAll: {
+  viewAllText: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#b081ee',
+  },
+  scheduleContainer: {
+    // No specific styles needed here, content will be handled by ScrollView
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+    marginBottom: 8,
+  },
+  headerMember: {
+    flex: 1,
+    textAlign: 'left',
+  },
+  headerMedication: {
+    flex: 2,
+    textAlign: 'left',
+  },
+  headerTime: {
+    flex: 1,
+    textAlign: 'left',
+  },
+  headerActions: {
+    flex: 1,
+    textAlign: 'right',
+  },
+  headerText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2d1155',
+  },
+  tableContent: {
+    // No specific styles needed here, content will be handled by ScrollView
+  },
+  tableRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f3f4',
+    minHeight: 60,
+  },
+  cellMember: {
+    flex: 1,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  memberInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  memberAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  memberAvatarPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  memberName: {
+    fontSize: 14,
+    color: '#2d1155',
+    fontWeight: '600',
+  },
+  cellMedication: {
+    flex: 2,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  medicationText: {
+    fontSize: 14,
+    color: '#2d1155',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  medicationName: {
+    fontSize: 14,
+    color: '#2d1155',
+    fontWeight: '600',
+  },
+  dosageText: {
+    fontSize: 12,
+    color: '#6c757d',
+    fontWeight: '400',
+  },
+  cellTime: {
+    flex: 1,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  timeText: {
+    fontSize: 14,
+    color: '#2d1155',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  cellActions: {
+    flex: 1,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionButton: {
+    padding: 4,
+    borderRadius: 4,
+    backgroundColor: '#f8f9fa',
+  },
+  actionButtonDone: {
+    backgroundColor: '#34C759',
   },
   emptyState: {
     alignItems: 'center',
     paddingVertical: 20,
   },
-  emptyStateText: {
+  emptyText: {
     marginTop: 8,
     color: '#666',
     fontSize: 16,
+  },
+  membersContainer: {
+    paddingHorizontal: 10, // Add some horizontal padding for horizontal scroll
   },
   memberCard: {
     width: 120,
@@ -376,61 +652,90 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     marginRight: 10,
   },
-  memberAvatar: {
+  memberCardAvatar: {
     width: 60,
     height: 60,
     borderRadius: 30,
     marginBottom: 8,
   },
-  memberName: {
+  memberCardAvatarPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  memberCardName: {
     fontSize: 14,
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  memberRelation: {
+  memberCardRelation: {
     fontSize: 12,
   },
-  treatmentList: {
-    marginBottom: 20,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  treatmentItem: {
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    minWidth: 280,
+    maxWidth: 340,
+    width: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  alertsList: {
+    maxHeight: 200, // Limit height for scrollable list
+  },
+  alertItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f3f4',
+  },
+  alertText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#333',
+  },
+  noAlertsText: {
+    color: '#888',
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8f9fa',
-    padding: 15,
     borderRadius: 15,
-    marginBottom: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: '#e9ecef',
+    marginBottom: 15,
+    marginHorizontal: 20,
   },
-  treatmentAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 15,
+  searchIcon: {
+    marginRight: 10,
   },
-  treatmentName: {
+  searchInput: {
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  treatmentTime: {
-    fontSize: 14,
-  },
-  treatmentItemDone: {
-    backgroundColor: '#f0f0f0',
-  },
-  treatmentTextDone: {
-    textDecorationLine: 'line-through',
-  },
-  addMemberCard: {
-    width: 120,
-    height: 155, // Adjust height to match other cards
-    justifyContent: 'center',
-  },
-  addMemberText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#b081ee',
-    marginTop: 5,
+    flex: 1,
+    color: '#333',
   },
 }); 
