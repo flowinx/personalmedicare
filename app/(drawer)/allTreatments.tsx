@@ -3,40 +3,27 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Image, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
+import { deleteTreatment, getAllTreatments, Treatment } from '../../db/index';
 import { getAllMembers } from '../../db/members';
-import { deleteTreatment, getAllTreatments } from '../../db/memoryStorage';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
-import { useThemeColor } from '../../hooks/useThemeColor';
+
+interface TreatmentWithMember extends Treatment {
+  member_name: string;
+}
 
 type NavigationProp = {
   navigate: (screen: string, params?: any) => void;
   goBack: () => void;
 };
 
-interface Treatment {
-  id: number;
-  medication: string;
-  member_id: number;
-  member_name: string;
-  status: string;
-  dosage: string;
-  frequency_value: number;
-  frequency_unit: string;
-  duration: string;
-  notes: string;
-  start_datetime: string;
-}
-
 export default function AllTreatmentsScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const [treatments, setTreatments] = useState<Treatment[]>([]);
+  const [treatments, setTreatments] = useState<TreatmentWithMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'todos' | 'ativos' | 'finalizados'>('todos');
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [treatmentToDelete, setTreatmentToDelete] = useState<Treatment | null>(null);
+  const [treatmentToDelete, setTreatmentToDelete] = useState<TreatmentWithMember | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const iconColor = useThemeColor({}, 'icon');
-  const tintColor = useThemeColor({}, 'tint');
 
   // Animações de entrada
   const { fadeAnim, slideAnim, startAnimation } = useEntranceAnimation();
@@ -51,7 +38,7 @@ export default function AllTreatmentsScreen() {
           const allMembers = await getAllMembers();
           
           // Combinar tratamentos com nomes dos membros
-          const treatmentsWithMemberNames = allTreatments.map(treatment => {
+          const treatmentsWithMemberNames: TreatmentWithMember[] = allTreatments.map(treatment => {
             const member = allMembers.find(m => m.id === treatment.member_id);
             return {
               ...treatment,
@@ -63,6 +50,7 @@ export default function AllTreatmentsScreen() {
           setTreatments(treatmentsWithMemberNames);
         } catch (error) {
           console.error('Erro ao buscar tratamentos:', error);
+          Alert.alert('Erro', 'Não foi possível carregar os tratamentos.');
         } finally {
           setLoading(false);
         }
@@ -104,20 +92,20 @@ export default function AllTreatmentsScreen() {
     }
   };
 
-  const handleEditTreatment = (treatment: Treatment) => {
+  const handleEditTreatment = (treatment: TreatmentWithMember) => {
     navigation.navigate('Novo Tratamento', { 
       treatmentId: treatment.id,
       mode: 'edit'
     });
   };
 
-  const handleViewTreatment = (treatment: Treatment) => {
+  const handleViewTreatment = (treatment: TreatmentWithMember) => {
     navigation.navigate('Detalhes do Tratamento', { 
       treatmentId: treatment.id
     });
   };
 
-  const handleDeleteTreatment = (treatment: Treatment) => {
+  const handleDeleteTreatment = (treatment: TreatmentWithMember) => {
     setTreatmentToDelete(treatment);
     setDeleteModalVisible(true);
   };

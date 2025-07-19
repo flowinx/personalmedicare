@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AnimatedCard } from '../../components/AnimatedCard';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { Member, getAllMembers, initMembersDB } from '../../db/members';
+import { Member, getAllMembers } from '../../db/members';
+import { initMembersDB } from '../../services/firebase';
 import { useEntranceAnimation } from '../../utils/animations';
 
 export default function SelectMemberReportScreen() {
@@ -13,7 +14,7 @@ export default function SelectMemberReportScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
   const { t } = useLanguage();
-  const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
+  const { startAnimation } = useEntranceAnimation();
 
   useEffect(() => {
     startAnimation();

@@ -10,9 +10,6 @@ export default function MedicationDetailsScreen() {
   const navigation = useNavigation();
   
   const [medicationName, setMedicationName] = useState<string>('');
-  const [medicationInfo, setMedicationInfo] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>('');
 
   useEffect(() => {
     const params = route.params as any;
@@ -21,9 +18,7 @@ export default function MedicationDetailsScreen() {
       setMedicationName(params.medicationName);
     }
     
-    if (params?.medicationInfo) {
-      setMedicationInfo(params.medicationInfo);
-    }
+
     
     // Se não recebeu informações via parâmetros, buscar via IA
     if (params?.medicationName && !params?.medicationInfo) {
@@ -37,23 +32,16 @@ export default function MedicationDetailsScreen() {
 
   const fetchMedicationDetails = async (name: string) => {
     if (!name) return;
-    
-    setLoading(true);
-    setError('');
 
     try {
       const info = await fetchMedicationInfo(name);
-      setMedicationInfo(info);
+      console.log('Informações do medicamento:', info);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao buscar informações');
-    } finally {
-      setLoading(false);
+      console.error('Erro ao buscar informações do medicamento:', err);
     }
   };
 
-  const handleTestButton = () => {
-    // Função de teste
-  };
+
 
   return (
     <ThemedView style={styles.container}>

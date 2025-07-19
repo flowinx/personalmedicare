@@ -3,20 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
-import { Member, getMemberById } from '../../db/members';
-import { getAllTreatments } from '../../db/memoryStorage';
-
-interface Treatment {
-  id: number;
-  medication: string;
-  dosage: string;
-  frequency_value: number;
-  frequency_unit: string;
-  duration: string;
-  notes: string;
-  start_datetime: string;
-  status: string;
-}
+import { getAllTreatments, Treatment } from '../../db/index';
+import { getMemberById, Member } from '../../db/members';
 
 interface TreatmentWithAdherence extends Treatment {
   totalDoses: number;
@@ -26,8 +14,7 @@ interface TreatmentWithAdherence extends Treatment {
 export default function MemberReportScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  // @ts-ignore
-  const memberId = Number(route.params?.id);
+  const memberId = (route.params as any)?.id as string | undefined;
   const [member, setMember] = useState<Member | null>(null);
   const [treatments, setTreatments] = useState<TreatmentWithAdherence[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,17 +26,22 @@ export default function MemberReportScreen() {
       setLoading(false);
       return;
     }
-    async function fetchData() {
+    
+    const fetchData = async () => {
       setLoading(true);
       try {
         const memberData = await getMemberById(memberId);
         setMember(memberData);
 
+        if (!memberData) {
+          throw new Error('Membro não encontrado');
+        }
+
         const allTreatments = await getAllTreatments();
         const memberTreatments = allTreatments.filter(treatment => treatment.member_id === memberId);
 
         // Por enquanto, vamos simular dados de adesão até implementarmos o sistema de schedule
-        const treatmentsWithAdherence = memberTreatments.map(treatment => ({
+        const treatmentsWithAdherence: TreatmentWithAdherence[] = memberTreatments.map(treatment => ({
           ...treatment,
           notes: treatment.notes || '',
           totalDoses: 0, // TODO: Implementar contagem real de doses
@@ -63,7 +55,8 @@ export default function MemberReportScreen() {
       } finally {
         setLoading(false);
       }
-    }
+    };
+    
     fetchData();
   }, [memberId]);
 
@@ -75,13 +68,17 @@ export default function MemberReportScreen() {
   // Função para análise IA
   const gerarAnaliseIA = async () => {
     if (treatments.length === 0) return;
+    
     setLoadingIa(true);
     setIaAnalysis('');
-    const historico = treatments.map(t =>
-      `- ${t.medication} (${t.dosage || 'dose não informada'}, a cada ${t.frequency_value || ''} ${t.frequency_unit || ''}, ${t.duration || 'duração não informada'}) [${t.status}]`
-    ).join('\n');
-    const prompt = `Considere o seguinte histórico de medicamentos consumidos:\n${historico}\n\nFaça uma análise detalhada sobre a situação do paciente, possíveis riscos, recomendações e pontos de atenção. Responda de forma clara e objetiva. Use frases curtas, destaque pontos importantes com emojis e, o mais importante, NÃO utilize nenhuma formatação markdown (como **, *, #, etc.).`;
+    
     try {
+      const historico = treatments.map(t =>
+        `- ${t.medication} (${t.dosage || 'dose não informada'}, a cada ${t.frequency_value || ''} ${t.frequency_unit || ''}, ${t.duration || 'duração não informada'}) [${t.status}]`
+      ).join('\n');
+      
+      const prompt = `Considere o seguinte histórico de medicamentos consumidos:\n${historico}\n\nFaça uma análise detalhada sobre a situação do paciente, possíveis riscos, recomendações e pontos de atenção. Responda de forma clara e objetiva. Use frases curtas, destaque pontos importantes com emojis e, o mais importante, NÃO utilize nenhuma formatação markdown (como **, *, #, etc.).`;
+      
       console.log('[MemberReport] Gerando relatório com Gemini...');
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyDLL64gXACWEcnmSSJyjZV_pdVSTDn5yus`, {
         method: 'POST',
@@ -100,11 +97,17 @@ export default function MemberReportScreen() {
           ]
         }),
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
       console.log('Resposta da IA:', data);
       const texto = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       setIaAnalysis(texto);
     } catch (e) {
+      console.error('Erro na análise IA:', e);
       setIaAnalysis('Erro ao buscar análise da IA.');
       Alert.alert('Erro', 'Erro ao buscar análise da IA.');
     } finally {

@@ -6,8 +6,8 @@ import { Animated, Image, Modal, ScrollView, StyleSheet, Text, TextInput, Toucha
 import { ThemedView } from '../../components/ThemedView';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useProfile } from '../../contexts/ProfileContext';
+import { Treatment, getAllTreatments } from '../../db/index';
 import { Member, getAllMembers } from '../../db/members';
-import { Treatment, getAllTreatments } from '../../db/memoryStorage';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 
 type NavigationProp = {
@@ -16,17 +16,17 @@ type NavigationProp = {
 
 type RootStackParamList = {
   'Cadastrar Membro': undefined;
-  'Novo Tratamento': { treatmentId?: number; mode?: string } | undefined;
+  'Novo Tratamento': { treatmentId?: string; mode?: string } | undefined;
   'Tratamentos': undefined;
-  'Detalhes do Membro': { id: number };
-  'Detalhes do Tratamento': { treatmentId: number };
+  'Detalhes do Membro': { id: string };
+  'Detalhes do Tratamento': { treatmentId: string };
 };
 
 interface ScheduleItem {
   id: string; // schedule id - string para garantir unicidade
   scheduled_time: string;
   status: 'pendente' | 'tomado';
-  treatment_id: number;
+  treatment_id: string;
   medication: string;
   dosage: string;
   member_name: string;

@@ -4,18 +4,27 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Animated, FlatList, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { N8NConfig } from '../../constants/N8NConfig';
+import { saveDocument } from '../../db/index';
 import { Member, getAllMembers } from '../../db/members';
-import { saveDocument } from '../../db/memoryStorage';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 import { extractTextFromDocument } from '../../services/documentParser';
 import { analyzeDocument } from '../../services/gemini';
+
+interface DocumentData {
+  member_id: string;
+  file_name: string;
+  file_uri: string;
+  file_type: string;
+  analysis_text?: string;
+  created_at: string;
+}
 
 export default function DocumentAnalysisScreen() {
   const [document, setDocument] = useState<DocumentPicker.DocumentPickerResult | null>(null);
   const [analysis, setAnalysis] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
-  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [processingStep, setProcessingStep] = useState<string>('');
   const [isMemberModalVisible, setMemberModalVisible] = useState(false);
 
@@ -90,25 +99,25 @@ export default function DocumentAnalysisScreen() {
       const data = await response.json();
       console.log('[DocumentAnalysis] Dados recebidos:', data);
       
-      const result = data.text || data.result || data.content || 'Nenhum texto extraído.';
-      console.log('[DocumentAnalysis] Texto extraído:', result.substring(0, 100) + '...');
+      if (data.error) {
+        throw new Error(data.error);
+      }
       
-      return result;
+      return data.analysis || data.text || 'Análise não disponível';
     } catch (error) {
-      console.error('[DocumentAnalysis] Erro detalhado no webhook:', error);
-      console.error('[DocumentAnalysis] Stack trace:', error instanceof Error ? error.stack : 'N/A');
-      throw new Error(`Erro ao processar o PDF no servidor: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      console.error('[DocumentAnalysis] Erro no webhook:', error);
+      throw error;
     }
   }
 
-  const processDocument = useCallback(async (doc: DocumentPicker.DocumentPickerResult) => {
-    if (doc.canceled || !selectedMemberId) return;
-
-    console.log('[DocumentAnalysis] === INICIANDO PROCESSAMENTO ===');
-    console.log('[DocumentAnalysis] Documento selecionado:', doc.assets[0]);
-    console.log('[DocumentAnalysis] Membro selecionado ID:', selectedMemberId);
+  const processDocument = async (doc: DocumentPicker.DocumentPickerResult) => {
+    if (!selectedMemberId || !doc.assets || doc.assets.length === 0) {
+      return;
+    }
 
     setIsLoading(true);
+    setProcessingStep('Iniciando processamento...');
+
     try {
       const asset = doc.assets[0];
       console.log('[DocumentAnalysis] Tipo do arquivo:', asset.mimeType);
@@ -120,7 +129,8 @@ export default function DocumentAnalysisScreen() {
         console.log('[DocumentAnalysis] Resultado do webhook recebido');
         setAnalysis(webhookResult);
         setProcessingStep('Salvando documento...');
-        const documentData = {
+        
+        const documentData: DocumentData = {
           member_id: selectedMemberId,
           file_name: asset.name,
           file_uri: asset.uri,
@@ -128,6 +138,7 @@ export default function DocumentAnalysisScreen() {
           analysis_text: webhookResult,
           created_at: new Date().toISOString()
         };
+        
         await saveDocument(documentData);
         console.log('[DocumentAnalysis] Documento salvo com sucesso');
         setProcessingStep('');
@@ -138,7 +149,8 @@ export default function DocumentAnalysisScreen() {
         const analysisResult = await analyzeDocument(extractedText);
         setAnalysis(analysisResult);
         setProcessingStep('Salvando documento...');
-        const documentData = {
+        
+        const documentData: DocumentData = {
           member_id: selectedMemberId,
           file_name: asset.name,
           file_uri: asset.uri,
@@ -146,6 +158,7 @@ export default function DocumentAnalysisScreen() {
           analysis_text: analysisResult,
           created_at: new Date().toISOString()
         };
+        
         await saveDocument(documentData);
         setProcessingStep('');
       }
@@ -156,12 +169,12 @@ export default function DocumentAnalysisScreen() {
       setIsLoading(false);
       setProcessingStep('');
     }
-  }, [selectedMemberId]);
+  };
 
-  const handleSelectMember = useCallback((id: number) => {
-    setSelectedMemberId(id);
-    setMemberModalVisible(false);
-  }, []);
+  const handleSelectMember = useCallback((id: string) => {
+  setSelectedMemberId(id);
+  setMemberModalVisible(false);
+}, []);
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">

@@ -22,8 +22,8 @@ export const AnimatedLoading: React.FC<AnimatedLoadingProps> = ({
   color = '#b081ee',
   showText = true,
 }) => {
-  const pulseAnim = new Animated.Value(1);
-  const rotateAnim = new Animated.Value(0);
+  const pulseAnim = React.useMemo(() => new Animated.Value(1), []);
+  const rotateAnim = React.useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
     pulse(pulseAnim).start();

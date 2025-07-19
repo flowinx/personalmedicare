@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { AuthProvider } from '../contexts/AuthContext';
 import { LanguageProvider } from '../contexts/LanguageContext';
 import { ProfileProvider } from '../contexts/ProfileContext';
 import { ThemeProvider } from '../theme/ThemeContext';
@@ -19,15 +20,16 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    const initDatabase = async () => {
+    const initializeApp = async () => {
       try {
-        await initDatabase();
+        // Inicialização do app pode ser feita aqui se necessário
+        console.log('App inicializado com sucesso');
       } catch (error) {
-        console.error('Erro ao inicializar banco de dados:', error);
+        console.error('Erro ao inicializar app:', error);
       }
     };
     
-    initDatabase();
+    initializeApp();
   }, []);
 
   useEffect(() => {
@@ -45,20 +47,24 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <LanguageProvider>
-        <ProfileProvider>
-          <RootLayoutNav />
-        </ProfileProvider>
-      </LanguageProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <ProfileProvider>
+            <RootLayoutNav />
+          </ProfileProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 
 function RootLayoutNav() {
   return (
     <Stack>
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );

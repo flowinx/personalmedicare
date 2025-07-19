@@ -1,17 +1,17 @@
 import { FontAwesome } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
+import { getTreatmentById } from '../../db/index';
 import { getAllMembers } from '../../db/members';
-import { getTreatmentById } from '../../db/memoryStorage';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 
 interface Treatment {
-  id: number;
+  id: string;
   medication: string;
-  member_id: number;
+  member_id: string;
   member_name: string;
   status: string;
   dosage: string;
@@ -25,9 +25,8 @@ interface Treatment {
 export default function TreatmentDetailScreen() {
   const router = useRouter();
   const route = useRoute();
-  const navigation = useNavigation();
   
-  const treatmentId = (route.params as any)?.treatmentId ? Number((route.params as any).treatmentId) : undefined;
+  const treatmentId = (route.params as any)?.treatmentId ? String((route.params as any).treatmentId) : undefined;
   
   const [treatment, setTreatment] = useState<Treatment | null>(null);
   const [loading, setLoading] = useState(true);

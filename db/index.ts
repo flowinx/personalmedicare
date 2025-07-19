@@ -1,35 +1,60 @@
-// Re-export das funções do novo sistema de memória
+// Re-export das funções do Firebase
 // Importa as funções específicas
-import { clearAllData, initMembersDB, initProfileDB } from './memoryStorage';
+import {
+    addMember,
+    addTreatment,
+    clearAllData,
+    deleteMember,
+    deleteTreatment,
+    Document,
+    getAllMembers,
+    getAllTreatments,
+    getDocumentsByMemberId,
+    getMemberById,
+    getProfile,
+    getTreatmentById,
+    getTreatmentsByMemberId,
+    initMembersDB,
+    initProfileDB,
+    Member,
+    saveDocument,
+    Treatment,
+    updateMember,
+    updateProfile,
+    updateTreatment,
+    UserProfile
+} from '../services/firebase';
 
-export * from './memoryStorage';
+export {
+    addMember, addTreatment, deleteMember, deleteTreatment, Document, getAllMembers, getAllTreatments, getDocumentsByMemberId, getMemberById, getProfile, getTreatmentById, getTreatmentsByMemberId, Member, saveDocument, Treatment, updateMember, updateProfile, updateTreatment, UserProfile
+};
 
-// Função de inicialização que usa o novo sistema
+// Função de inicialização que usa o Firebase
 export async function initDatabase() {
   try {
-    console.log('Initializing memory storage database...');
+    console.log('Inicializando banco de dados Firebase...');
     
     // Inicializa todos os bancos de dados
     await initMembersDB();
     await initProfileDB();
     
-    console.log('Memory storage database initialized successfully');
+    console.log('Banco de dados Firebase inicializado com sucesso');
   } catch (error) {
-    console.error('Error initializing memory storage database:', error);
+    console.error('Erro ao inicializar banco de dados Firebase:', error);
     throw error;
   }
 }
 
 // Função para resetar o banco (útil para debug)
 export async function resetDatabase() {
-  console.log('Resetting memory storage database...');
+  console.log('Resetando banco de dados Firebase...');
   
   try {
     await clearAllData();
     await initDatabase();
-    console.log('Memory storage database reset completed');
+    console.log('Reset do banco de dados Firebase concluído');
   } catch (error) {
-    console.error('Error resetting memory storage database:', error);
+    console.error('Erro ao resetar banco de dados Firebase:', error);
     throw error;
   }
 }

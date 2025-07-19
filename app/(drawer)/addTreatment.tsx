@@ -1,106 +1,69 @@
 import { FontAwesome } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    FlatList,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
+import { addTreatment, getTreatmentById, updateTreatment } from '../../db/index';
 import { Member, getAllMembers } from '../../db/members';
-import { addTreatment, getTreatmentById, updateTreatment } from '../../db/memoryStorage';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
-import { fetchMedicationInfo } from '../../services/gemini';
 
-const unitOptions = ['horas', 'dias', 'semanas', 'meses'];
-
-// Opções específicas para duração e frequência
-const durationUnitOptions = ['dias', 'semanas', 'meses'];
 const frequencyUnitOptions = ['horas', 'dias'];
 
+interface TreatmentFormData {
+  member_id: string;
+  medication: string;
+  dosage: string;
+  frequency_value: number;
+  frequency_unit: string;
+  duration: string;
+  notes: string;
+  start_datetime: string;
+  status: string;
+}
+
 export default function AddTreatmentScreen() {
-  const router = useRouter();
   const route = useRoute();
-  const navigation = useNavigation();
-  
-  // Extrair memberId dos parâmetros da rota
-  const memberId = (route.params as any)?.memberId ? Number((route.params as any).memberId) : undefined;
-  const treatmentId = (route.params as any)?.treatmentId ? Number((route.params as any).treatmentId) : undefined;
-  const mode = (route.params as any)?.mode || 'add';
-  const isMemberLocked = !!memberId;
-  const isEditMode = mode === 'edit';
-
-  // Atualizar título da tela baseado no modo
-  useEffect(() => {
-    const title = isEditMode ? 'Editar Tratamento' : 'Novo Tratamento';
-    navigation.setOptions({ title });
-  }, [isEditMode, navigation]);
-
+  const router = useRouter();
   const [members, setMembers] = useState<Member[]>([]);
-  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
-  const [medication, setMedication] = useState('');
-  const [dosage, setDosage] = useState('');
-  const [durationValue, setDurationValue] = useState('');
-  const [durationUnit, setDurationUnit] = useState('dias');
-  const [isContinuousUse, setIsContinuousUse] = useState(false);
-  const [notes, setNotes] = useState('');
-  const [frequencyValue, setFrequencyValue] = useState('');
-  const [frequencyUnit, setFrequencyUnit] = useState('horas');
-  const [startDate, setStartDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedTime, setSelectedTime] = useState(new Date());
+  const [showMedicationInfo, setShowMedicationInfo] = useState(false);
+  const [loadingMedicationInfo] = useState(false);
 
-  const [isMemberModalVisible, setMemberModalVisible] = useState(false);
-  const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
-  const [isTimePickerVisible, setTimePickerVisibility] = useState(false);
-  
-  // Estados para os dropdowns
-  const [durationDropdownOpen, setDurationDropdownOpen] = useState(false);
-  const [frequencyDropdownOpen, setFrequencyDropdownOpen] = useState(false);
-  
-  // Estados para posicionamento do dropdown
-  const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0, width: 0 });
-  const [activeDropdown, setActiveDropdown] = useState<'duration' | 'frequency' | null>(null);
+  // Form data
+  const [formData, setFormData] = useState<TreatmentFormData>({
+    member_id: '',
+    medication: '',
+    dosage: '',
+    frequency_value: 1,
+    frequency_unit: 'horas',
+    duration: '',
+    notes: '',
+    start_datetime: new Date().toISOString(),
+    status: 'ativo'
+  });
 
-  const [loadingObservacao, setLoadingObservacao] = useState(false);
-  const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
-
-  // Função para abrir dropdown com posicionamento correto
-  const openDropdown = (type: 'duration' | 'frequency', event: any) => {
-    event.target.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
-      setDropdownPosition({
-        x: pageX,
-        y: pageY + height,
-        width: width
-      });
-      setActiveDropdown(type);
-      if (type === 'duration') {
-        setDurationDropdownOpen(true);
-        setFrequencyDropdownOpen(false);
-      } else {
-        setFrequencyDropdownOpen(true);
-        setDurationDropdownOpen(false);
-      }
-    });
-  };
-
-  // Função para fechar dropdown
-  const closeDropdown = () => {
-    setDurationDropdownOpen(false);
-    setFrequencyDropdownOpen(false);
-    setActiveDropdown(null);
-  };
+  // Animações
+  const { fadeAnim, slideAnim, startAnimation } = useEntranceAnimation();
 
   useEffect(() => {
     startAnimation();
@@ -108,66 +71,57 @@ export default function AddTreatmentScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      async function fetchMembers() {
-        const allMembers = await getAllMembers();
-        setMembers(allMembers);
-
-        // Prioriza sempre o memberId vindo da navegação
-        if (memberId) {
-          setSelectedMemberId(memberId);
-        } else if (!selectedMemberId && allMembers.length > 0) {
-          // Se não há memberId nos parâmetros e nenhum membro selecionado, seleciona o primeiro
-          setSelectedMemberId(allMembers[0].id || null);
-        }
-      }
-      fetchMembers();
-    }, [memberId, selectedMemberId]) // Adicionamos selectedMemberId como dependência
+      loadMembers();
+    }, [])
   );
+
+  const loadMembers = async () => {
+    const allMembers = await getAllMembers();
+    setMembers(allMembers);
+
+    // Prioriza sempre o memberId vindo da navegação
+    const memberId = (route.params as any)?.memberId ? String((route.params as any).memberId) : undefined;
+    if (memberId) {
+      setFormData(prev => ({ ...prev, member_id: memberId }));
+    } else if (!formData.member_id && allMembers.length > 0) {
+      // Se não há memberId nos parâmetros e nenhum membro selecionado, seleciona o primeiro
+      setFormData(prev => ({ ...prev, member_id: allMembers[0].id || '' }));
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
       // Limpa todos os campos ao abrir a tela, exceto o membro selecionado
-      setMedication('');
-      setDosage('');
-      setDurationValue('');
-      setDurationUnit('dias');
-      setIsContinuousUse(false);
-      setNotes('');
-      setFrequencyValue('');
-      setFrequencyUnit('horas');
-      setStartDate(new Date());
-    }, [memberId]));
+      setFormData(prev => ({ ...prev, medication: '', dosage: '', duration: '', notes: '' }));
+      setSelectedDate(new Date());
+      setSelectedTime(new Date());
+    }, [route.params]));
 
   // Carregar dados do tratamento para edição
   useFocusEffect(
     useCallback(() => {
       const loadTreatmentData = async () => {
+        const isEditMode = (route.params as any)?.mode === 'edit';
+        const treatmentId = (route.params as any)?.treatmentId ? String((route.params as any).treatmentId) : undefined;
+
         if (isEditMode && treatmentId) {
           try {
             const treatment = await getTreatmentById(treatmentId);
             if (treatment) {
               
-              setSelectedMemberId(treatment.member_id);
-              setMedication(treatment.medication);
-              setDosage(treatment.dosage);
-              setFrequencyValue(treatment.frequency_value.toString());
-              setFrequencyUnit(treatment.frequency_unit);
-              setNotes(treatment.notes || '');
-              setStartDate(new Date(treatment.start_datetime));
-              
-              // Processar duração
-              if (treatment.duration === 'Uso Contínuo') {
-                setIsContinuousUse(true);
-                setDurationValue('');
-                setDurationUnit('dias');
-              } else {
-                setIsContinuousUse(false);
-                const durationParts = treatment.duration.split(' ');
-                if (durationParts.length >= 2) {
-                  setDurationValue(durationParts[0]);
-                  setDurationUnit(durationParts[1]);
-                }
-              }
+                             setFormData(prev => ({ 
+                 ...prev, 
+                 member_id: treatment.member_id, 
+                 medication: treatment.medication, 
+                 dosage: treatment.dosage, 
+                 frequency_value: treatment.frequency_value, 
+                 frequency_unit: treatment.frequency_unit, 
+                 duration: treatment.duration, 
+                 notes: treatment.notes || '', 
+                 start_datetime: treatment.start_datetime 
+               }));
+              setSelectedDate(new Date(treatment.start_datetime));
+              setSelectedTime(new Date(treatment.start_datetime));
             }
           } catch (error) {
             console.error('[AddTreatment] Error loading treatment:', error);
@@ -177,22 +131,22 @@ export default function AddTreatmentScreen() {
       };
       
       loadTreatmentData();
-    }, [isEditMode, treatmentId])
+    }, [route.params])
   );
 
   const handleSaveTreatment = async () => {
-    if (!selectedMemberId || !medication.trim() || !frequencyValue.trim()) {
+    if (!formData.member_id || !formData.medication.trim() || !formData.frequency_value) {
       Alert.alert('Erro', 'Preencha todos os campos obrigatórios.');
       return;
     }
 
     // Se não for uso contínuo, verificar se a duração foi preenchida
-    if (!isContinuousUse && !durationValue.trim()) {
+    if (!formData.duration.trim()) {
       Alert.alert('Erro', 'Preencha a duração do tratamento.');
       return;
     }
 
-    const freqVal = parseInt(frequencyValue, 10);
+    const freqVal = parseInt(formData.frequency_value.toString(), 10);
 
     if (isNaN(freqVal) || freqVal <= 0) {
       Alert.alert('Erro', 'Frequência deve ser um número maior que zero.');
@@ -200,8 +154,8 @@ export default function AddTreatmentScreen() {
     }
 
     // Se não for uso contínuo, verificar se a duração é válida
-    if (!isContinuousUse) {
-      const durVal = parseInt(durationValue, 10);
+    if (formData.duration !== 'Uso Contínuo') {
+      const durVal = parseInt(formData.duration.split(' ')[0], 10);
       if (isNaN(durVal) || durVal <= 0) {
         Alert.alert('Erro', 'Duração deve ser um número maior que zero.');
         return;
@@ -209,127 +163,59 @@ export default function AddTreatmentScreen() {
     }
 
     try {
-      const startDateTime = startDate.toISOString();
-      const durationString = isContinuousUse ? 'Uso Contínuo' : `${durationValue} ${durationUnit}`;
+      const startDateTime = selectedDate.toISOString();
+      const durationString = formData.duration;
 
       const treatmentData = {
-        member_id: selectedMemberId,
-        medication: medication.trim(),
-        dosage: dosage.trim(),
+        member_id: formData.member_id,
+        medication: formData.medication.trim(),
+        dosage: formData.dosage.trim(),
         frequency_value: freqVal,
-        frequency_unit: frequencyUnit,
+        frequency_unit: formData.frequency_unit,
         duration: durationString,
-        notes: notes.trim(),
+        notes: formData.notes.trim(),
         start_datetime: startDateTime,
         status: 'ativo'
       };
+
+      const isEditMode = (route.params as any)?.mode === 'edit';
+      const treatmentId = (route.params as any)?.treatmentId ? String((route.params as any).treatmentId) : undefined;
 
       if (isEditMode && treatmentId) {
         await updateTreatment(treatmentId, treatmentData);
         Alert.alert('Sucesso', 'Tratamento atualizado com sucesso!');
       } else {
         await addTreatment(treatmentData);
-        Alert.alert('Sucesso', 'Tratamento salvo com sucesso!');
+        Alert.alert('Sucesso', 'Tratamento adicionado com sucesso!');
       }
 
       router.back();
     } catch (error) {
       console.error('Falha ao salvar tratamento:', error);
+      const isEditMode = (route.params as any)?.mode === 'edit';
       Alert.alert('Erro', `Não foi possível ${isEditMode ? 'atualizar' : 'salvar'} o tratamento.`);
     }
   };
   
-  const handleSelectMember = (id: number) => {
-    setSelectedMemberId(id);
+  const handleSelectMember = (id: string) => {
+    setFormData(prev => ({ ...prev, member_id: id }));
   }
 
-  const handleConfirmDate = (date: Date) => {
-    const newDate = new Date(startDate);
-    newDate.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-    setStartDate(newDate);
-    setDatePickerVisibility(false);
+  const handleConfirmDate = (event: any, date: Date | undefined) => {
+    if (event.type === 'set' && date) {
+      setSelectedDate(date);
+      setShowDatePicker(false);
+    }
   };
   
-  const handleConfirmTime = (date: Date) => {
-    const newDate = new Date(startDate);
-    newDate.setHours(date.getHours(), date.getMinutes());
-    setStartDate(newDate);
-    setTimePickerVisibility(false);
-  };
-
-  const openMedicationInfo = async () => {
-    
-    if (!medication.trim()) {
-      Alert.alert('Aviso', 'Digite o nome do medicamento primeiro.');
-      return;
-    }
-    
-    // Verificar e fechar modais antes de navegar
-    
-    // Fechar todos os modais
-    if (isMemberModalVisible) {
-      setMemberModalVisible(false);
-    }
-    if (isDatePickerVisible) {
-      setDatePickerVisibility(false);
-    }
-    if (isTimePickerVisible) {
-      setTimePickerVisibility(false);
-    }
-    
-    // Aguardar um pouco para os modais fecharem
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    setLoadingObservacao(true);
-    
-    try {
-      const info = await fetchMedicationInfo(medication.trim());
-      
-      const finalInfo = info || 'Nenhuma informação encontrada para este medicamento.';
-      
-      // Navegar para a tela de detalhes do medicamento
-      await router.navigate({
-        pathname: '/(drawer)/medicationDetails',
-        params: {
-          medicationName: medication.trim(),
-          medicationInfo: 'Informações do medicamento serão carregadas na tela de detalhes.'
-        }
-      });
-    } catch (error) {
-      console.error('[openMedicationInfo] Erro capturado:', error);
-      console.error('[openMedicationInfo] Tipo do erro:', typeof error);
-      console.error('[openMedicationInfo] Mensagem do erro:', error instanceof Error ? error.message : 'N/A');
-      console.error('[openMedicationInfo] Stack trace:', error instanceof Error ? error.stack : 'N/A');
-      Alert.alert('Erro', 'Não foi possível buscar as informações do medicamento.');
-    } finally {
-      setLoadingObservacao(false);
+  const handleConfirmTime = (event: any, date: Date | undefined) => {
+    if (event.type === 'set' && date) {
+      setSelectedTime(date);
+      setShowTimePicker(false);
     }
   };
 
 
-
-  const fetchInfoMedicamento = async (nome: string) => {
-    if (!nome.trim()) {
-      return;
-    }
-    
-    setLoadingObservacao(true);
-    
-    try {
-      const medicationInfo = await fetchMedicationInfo(nome);
-      
-      if (medicationInfo && medicationInfo.trim()) {
-        setNotes(medicationInfo);
-      } else {
-      }
-    } catch (error) {
-      console.error('[AddTreatment] Erro ao buscar informações do medicamento:', error);
-      console.error('[AddTreatment] Stack trace:', error instanceof Error ? error.stack : 'N/A');
-      Alert.alert('Erro', 'Não foi possível buscar as informações do medicamento.');
-    } finally {
-      setLoadingObservacao(false);
-    }
-  };
 
   return (
     <>
@@ -349,15 +235,13 @@ export default function AddTreatmentScreen() {
               </View>
               <View style={styles.inputContainer}>
                 <ThemedText style={styles.label}>Para qual membro da família?</ThemedText>
-                <TouchableOpacity style={styles.picker} onPress={() => !isMemberLocked && setMemberModalVisible(true)} disabled={isMemberLocked}>
+                <TouchableOpacity style={styles.picker} onPress={() => !formData.member_id && setShowMedicationInfo(true)} disabled={!!formData.member_id}>
                   <FontAwesome name="user" size={20} color="#8A8A8A" style={styles.inputIcon} />
                   <ThemedText lightColor="#2d1155" darkColor="#2d1155" style={styles.pickerText}>
-                    {members.find(m => m.id === selectedMemberId)?.name || 'Selecione...'}
+                    {members.find(m => m.id === formData.member_id)?.name || 'Selecione...'}
                   </ThemedText>
-                  {isMemberLocked ? (
+                  {!!formData.member_id && (
                     <FontAwesome name="lock" size={16} color="#b081ee" style={{ marginLeft: 8 }} />
-                  ) : (
-                    <FontAwesome name="chevron-down" size={16} color="#2d1155" />
                   )}
                 </TouchableOpacity>
               </View>
@@ -378,26 +262,20 @@ export default function AddTreatmentScreen() {
                     style={styles.input} 
                     placeholder="Ex: Paracetamol" 
                     placeholderTextColor="#8A8A8A"
-                    value={medication} 
-                    onChangeText={setMedication} 
+                    value={formData.medication} 
+                    onChangeText={text => setFormData(prev => ({ ...prev, medication: text }))} 
                   />
                   <TouchableOpacity 
                     onPress={async () => {
                       
-                      if (!medication.trim()) {
+                      if (!formData.medication.trim()) {
                         Alert.alert('Aviso', 'Digite o nome do medicamento primeiro.');
                         return;
                       }
                       
                       // Fechar todos os modais antes de navegar
-                      if (isMemberModalVisible) {
-                        setMemberModalVisible(false);
-                      }
-                      if (isDatePickerVisible) {
-                        setDatePickerVisibility(false);
-                      }
-                      if (isTimePickerVisible) {
-                        setTimePickerVisibility(false);
+                      if (showMedicationInfo) {
+                        setShowMedicationInfo(false);
                       }
                       
                       // Aguardar um pouco para os modais fecharem
@@ -407,7 +285,7 @@ export default function AddTreatmentScreen() {
                         router.navigate({
                           pathname: '/+not-found',
                           params: {
-                            medicationName: medication.trim(),
+                            medicationName: formData.medication.trim(),
                             medicationInfo: 'Informações detalhadas do medicamento serão carregadas aqui.'
                           }
                         });
@@ -416,19 +294,19 @@ export default function AddTreatmentScreen() {
                         Alert.alert('Erro', 'Não foi possível abrir os detalhes do medicamento.');
                       }
                     }}
-                    disabled={!medication.trim() || loadingObservacao}
+                    disabled={!formData.medication.trim() || loadingMedicationInfo}
                     style={[
                       styles.infoButton,
-                      { opacity: medication.trim() && !loadingObservacao ? 1 : 0.3 }
+                      { opacity: formData.medication.trim() && !loadingMedicationInfo ? 1 : 0.3 }
                     ]}
                   >
                     <FontAwesome 
                       name="info-circle" 
                       size={20} 
-                      color={medication.trim() && !loadingObservacao ? "#b081ee" : "#8A8A8A"} 
+                      color={formData.medication.trim() && !loadingMedicationInfo ? "#b081ee" : "#8A8A8A"} 
                     />
                   </TouchableOpacity>
-                  {loadingObservacao && (
+                  {loadingMedicationInfo && (
                     <View style={styles.loadingContainer}>
                       <ActivityIndicator size="small" color="#b081ee" />
                     </View>
@@ -444,8 +322,8 @@ export default function AddTreatmentScreen() {
                     style={styles.input} 
                     placeholder="Ex: 1 comprimido de 500mg" 
                     placeholderTextColor="#8A8A8A"
-                    value={dosage} 
-                    onChangeText={setDosage} 
+                    value={formData.dosage} 
+                    onChangeText={text => setFormData(prev => ({ ...prev, dosage: text }))} 
                   />
                 </View>
               </View>
@@ -463,20 +341,20 @@ export default function AddTreatmentScreen() {
                   <ThemedText style={styles.label}>Tipo de Tratamento</ThemedText>
                   <View style={styles.toggleRow}>
                     <TouchableOpacity 
-                      style={[styles.toggleOption, !isContinuousUse && styles.toggleOptionActive]} 
-                      onPress={() => setIsContinuousUse(false)}
+                      style={[styles.toggleOption, !formData.duration.includes('Uso Contínuo') && styles.toggleOptionActive]} 
+                      onPress={() => setFormData(prev => ({ ...prev, duration: 'Uso Contínuo' }))}
                     >
-                      <FontAwesome name="calendar" size={16} color={!isContinuousUse ? "#fff" : "#8A8A8A"} />
-                      <ThemedText style={[styles.toggleText, !isContinuousUse && styles.toggleTextActive]}>
+                      <FontAwesome name="calendar" size={16} color={!formData.duration.includes('Uso Contínuo') ? "#fff" : "#8A8A8A"} />
+                      <ThemedText style={[styles.toggleText, !formData.duration.includes('Uso Contínuo') && styles.toggleTextActive]}>
                         Duração Específica
                       </ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity 
-                      style={[styles.toggleOption, isContinuousUse && styles.toggleOptionActive]} 
-                      onPress={() => setIsContinuousUse(true)}
+                      style={[styles.toggleOption, formData.duration.includes('Uso Contínuo') && styles.toggleOptionActive]} 
+                      onPress={() => setFormData(prev => ({ ...prev, duration: 'Uso Contínuo' }))}
                     >
-                      <FontAwesome name="refresh" size={16} color={isContinuousUse ? "#fff" : "#8A8A8A"} />
-                      <ThemedText style={[styles.toggleText, isContinuousUse && styles.toggleTextActive]}>
+                      <FontAwesome name="refresh" size={16} color={formData.duration.includes('Uso Contínuo') ? "#fff" : "#8A8A8A"} />
+                      <ThemedText style={[styles.toggleText, formData.duration.includes('Uso Contínuo') && styles.toggleTextActive]}>
                         Uso Contínuo
                       </ThemedText>
                     </TouchableOpacity>
@@ -484,13 +362,13 @@ export default function AddTreatmentScreen() {
                 </View>
               </View>
 
-              {!isContinuousUse && (
+              {!formData.duration.includes('Uso Contínuo') && (
                 <View style={styles.inputContainer}>
                   <ThemedText style={styles.label}>Duração do Tratamento</ThemedText>
                   <View style={styles.compositeInput}>
                     <View style={styles.inputWrapper}>
                       <FontAwesome 
-                        name={durationUnit === 'dias' ? 'calendar' : durationUnit === 'semanas' ? 'calendar-o' : 'calendar-check-o'} 
+                        name={formData.duration.includes('dias') ? 'calendar' : formData.duration.includes('semanas') ? 'calendar-o' : 'calendar-check-o'} 
                         size={20} 
                         color="#8A8A8A" 
                         style={styles.inputIcon} 
@@ -499,8 +377,8 @@ export default function AddTreatmentScreen() {
                         style={[styles.input, styles.compositeInputText]} 
                         placeholder="Ex: 7" 
                         placeholderTextColor="#8A8A8A"
-                        value={durationValue} 
-                        onChangeText={setDurationValue} 
+                        value={formData.duration.split(' ')[0]} 
+                        onChangeText={text => setFormData(prev => ({ ...prev, duration: `${text} ${formData.duration.split(' ')[1]}` }))} 
                         keyboardType="numeric" 
                       />
                     </View>
@@ -508,19 +386,23 @@ export default function AddTreatmentScreen() {
                       <View style={styles.dropdownContainer}>
                         <TouchableOpacity 
                           style={styles.dropdownButton}
-                          onPress={(event) => openDropdown('duration', event)}
+                          onPress={() => {
+                            const currentUnit = formData.duration.split(' ')[1];
+                            const newUnit = currentUnit === 'dias' ? 'semanas' : currentUnit === 'semanas' ? 'meses' : 'dias';
+                            setFormData(prev => ({ ...prev, duration: `${formData.duration.split(' ')[0]} ${newUnit}` }));
+                          }}
                         >
                           <View style={styles.dropdownButtonContent}>
                             <FontAwesome 
-                              name={durationUnit === 'dias' ? 'calendar' : durationUnit === 'semanas' ? 'calendar-o' : 'calendar-check-o'} 
+                              name={formData.duration.includes('dias') ? 'calendar' : formData.duration.includes('semanas') ? 'calendar-o' : 'calendar-check-o'} 
                               size={16} 
                               color="#8A8A8A" 
                               style={styles.dropdownIcon}
                             />
-                            <ThemedText style={styles.dropdownButtonText}>{durationUnit}</ThemedText>
+                            <ThemedText style={styles.dropdownButtonText}>{formData.duration.split(' ')[1]}</ThemedText>
                           </View>
                           <FontAwesome 
-                            name={durationDropdownOpen ? "chevron-up" : "chevron-down"} 
+                            name="chevron-down" 
                             size={16} 
                             color="#8A8A8A" 
                           />
@@ -538,7 +420,7 @@ export default function AddTreatmentScreen() {
                 <View style={styles.compositeInput}>
                   <View style={styles.inputWrapper}>
                     <FontAwesome 
-                      name={frequencyUnit === 'horas' ? 'clock-o' : 'calendar'} 
+                      name={formData.frequency_unit === 'horas' ? 'clock-o' : 'calendar'} 
                       size={20} 
                       color="#8A8A8A" 
                       style={styles.inputIcon} 
@@ -547,8 +429,8 @@ export default function AddTreatmentScreen() {
                       style={[styles.input, styles.compositeInputText]} 
                       placeholder="Ex: 8" 
                       placeholderTextColor="#8A8A8A"
-                      value={frequencyValue} 
-                      onChangeText={setFrequencyValue} 
+                      value={formData.frequency_value.toString()} 
+                      onChangeText={text => setFormData(prev => ({ ...prev, frequency_value: parseInt(text, 10) || 1 }))} 
                       keyboardType="numeric" 
                     />
                   </View>
@@ -556,51 +438,50 @@ export default function AddTreatmentScreen() {
                     <View style={styles.dropdownContainer}>
                       <TouchableOpacity 
                         style={styles.dropdownButton}
-                        onPress={(event) => openDropdown('frequency', event)}
+                        onPress={() => {
+                          const currentUnit = formData.frequency_unit;
+                          const newUnit = currentUnit === 'horas' ? 'dias' : 'horas';
+                          setFormData(prev => ({ ...prev, frequency_unit: newUnit }));
+                        }}
                       >
                         <View style={styles.dropdownButtonContent}>
                           <FontAwesome 
-                            name={frequencyUnit === 'horas' ? 'clock-o' : 'calendar'} 
+                            name={formData.frequency_unit === 'horas' ? 'clock-o' : 'calendar'} 
                             size={16} 
                             color="#8A8A8A" 
                             style={styles.dropdownIcon}
                           />
-                          <ThemedText style={styles.dropdownButtonText}>{frequencyUnit}</ThemedText>
+                          <ThemedText style={styles.dropdownButtonText}>{formData.frequency_unit}</ThemedText>
                         </View>
                         <FontAwesome 
-                          name={frequencyDropdownOpen ? "chevron-up" : "chevron-down"} 
+                          name="chevron-down" 
                           size={16} 
                           color="#8A8A8A" 
                         />
                       </TouchableOpacity>
                       
-                      {frequencyDropdownOpen && (
-                        <View style={styles.dropdownList}>
-                          {frequencyUnitOptions.map((option) => (
-                            <TouchableOpacity
-                              key={option}
-                              style={[
-                                styles.dropdownItem,
-                                frequencyUnit === option && styles.dropdownItemSelected
-                              ]}
-                              onPress={() => {
-                                setFrequencyUnit(option);
-                                setFrequencyDropdownOpen(false);
-                              }}
-                            >
-                              <ThemedText style={[
-                                styles.dropdownItemText,
-                                frequencyUnit === option && styles.dropdownItemTextSelected
-                              ]}>
-                                {option}
-                              </ThemedText>
-                              {frequencyUnit === option && (
-                                <FontAwesome name="check" size={16} color="#b081ee" />
-                              )}
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      )}
+                      {frequencyUnitOptions.map((option) => (
+                        <TouchableOpacity
+                          key={option}
+                          style={[
+                            styles.dropdownModalItem,
+                            formData.frequency_unit === option && styles.dropdownItemSelected
+                          ]}
+                          onPress={() => {
+                            setFormData(prev => ({ ...prev, frequency_unit: option }));
+                          }}
+                        >
+                          <ThemedText style={[
+                            styles.dropdownItemText,
+                            formData.frequency_unit === option && styles.dropdownItemTextSelected
+                          ]}>
+                            {option}
+                          </ThemedText>
+                          {formData.frequency_unit === option && (
+                            <FontAwesome name="check" size={16} color="#b081ee" />
+                          )}
+                        </TouchableOpacity>
+                      ))}
                     </View>
                   </View>
                 </View>
@@ -618,21 +499,17 @@ export default function AddTreatmentScreen() {
                 <View style={styles.dateTimeContainer}>
                   <TouchableOpacity 
                     style={styles.pickerHalf} 
-                    onPress={() => {
-                      setDatePickerVisibility(true);
-                    }}
+                    onPress={() => setShowDatePicker(true)}
                   >
                     <FontAwesome name="calendar" size={20} color="#8A8A8A" style={styles.inputIcon} />
-                    <ThemedText lightColor="#2d1155" darkColor="#2d1155">{startDate.toLocaleDateString()}</ThemedText>
+                    <ThemedText lightColor="#2d1155" darkColor="#2d1155">{selectedDate.toLocaleDateString()}</ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity 
                     style={styles.pickerHalf} 
-                    onPress={() => {
-                      setTimePickerVisibility(true);
-                    }}
+                    onPress={() => setShowTimePicker(true)}
                   >
                     <FontAwesome name="clock-o" size={20} color="#8A8A8A" style={styles.inputIcon} />
-                    <ThemedText lightColor="#2d1155" darkColor="#2d1155">{startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</ThemedText>
+                    <ThemedText lightColor="#2d1155" darkColor="#2d1155">{selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</ThemedText>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -653,15 +530,15 @@ export default function AddTreatmentScreen() {
                     placeholder="Ex: Tomar com um copo de água..." 
                     placeholderTextColor="#8A8A8A"
                     multiline 
-                    value={notes} 
-                    onChangeText={setNotes} 
+                    value={formData.notes} 
+                    onChangeText={text => setFormData(prev => ({ ...prev, notes: text }))} 
                   />
                 </View>
               </View>
             </Animated.View>
 
             {/* Buttons */}
-            <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+            <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim, transform: [{ scale: slideAnim }] }]}>
               <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
                 <ThemedText style={styles.secondaryButtonText} lightColor="#b081ee" darkColor="#b081ee">Cancelar</ThemedText>
               </TouchableOpacity>
@@ -674,42 +551,38 @@ export default function AddTreatmentScreen() {
       </KeyboardAvoidingView>
 
       {/* DateTimePicker com modal nativo */}
-      {isDatePickerVisible && (
+      {showDatePicker && (
         <Modal
           animationType="slide"
           transparent={true}
-          visible={isDatePickerVisible}
-          onRequestClose={() => setDatePickerVisibility(false)}
+          visible={showDatePicker}
+          onRequestClose={() => setShowDatePicker(false)}
         >
           <Pressable 
             style={styles.modalOverlay} 
-            onPress={() => setDatePickerVisibility(false)}
+            onPress={() => setShowDatePicker(false)}
           >
             <View style={styles.modalContent}>
               <ThemedText style={styles.modalTitle}>Selecionar Data</ThemedText>
               <DateTimePicker
-                value={startDate}
+                value={selectedDate}
                 mode="date"
                 display="spinner"
                 locale="pt-BR"
-                onChange={(event, selectedDate) => {
-                  if (event.type === 'set' && selectedDate) {
-                    setStartDate(selectedDate);
-                  }
-                }}
+                onChange={handleConfirmDate}
                 style={{ width: '100%' }}
               />
               <View style={styles.modalButtonContainer}>
                 <TouchableOpacity 
                   style={styles.modalButton}
-                  onPress={() => setDatePickerVisibility(false)}
+                  onPress={() => setShowDatePicker(false)}
                 >
                   <ThemedText style={styles.modalButtonText}>Cancelar</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={[styles.modalButton, { backgroundColor: '#b081ee' }]}
                   onPress={() => {
-                    setDatePickerVisibility(false);
+                    setShowDatePicker(false);
                   }}
                 >
                   <ThemedText style={[styles.modalButtonText, { color: 'white' }]}>Confirmar</ThemedText>
@@ -720,42 +593,38 @@ export default function AddTreatmentScreen() {
         </Modal>
       )}
       
-      {isTimePickerVisible && (
+      {showTimePicker && (
         <Modal
           animationType="slide"
           transparent={true}
-          visible={isTimePickerVisible}
-          onRequestClose={() => setTimePickerVisibility(false)}
+          visible={showTimePicker}
+          onRequestClose={() => setShowTimePicker(false)}
         >
           <Pressable 
             style={styles.modalOverlay} 
-            onPress={() => setTimePickerVisibility(false)}
+            onPress={() => setShowTimePicker(false)}
           >
             <View style={styles.modalContent}>
               <ThemedText style={styles.modalTitle}>Selecionar Hora</ThemedText>
               <DateTimePicker
-                value={startDate}
+                value={selectedTime}
                 mode="time"
                 display="spinner"
                 locale="pt-BR"
-                onChange={(event, selectedDate) => {
-                  if (event.type === 'set' && selectedDate) {
-                    setStartDate(selectedDate);
-                  }
-                }}
+                onChange={handleConfirmTime}
                 style={{ width: '100%' }}
               />
               <View style={styles.modalButtonContainer}>
                 <TouchableOpacity 
                   style={styles.modalButton}
-                  onPress={() => setTimePickerVisibility(false)}
+                  onPress={() => setShowTimePicker(false)}
                 >
                   <ThemedText style={styles.modalButtonText}>Cancelar</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={[styles.modalButton, { backgroundColor: '#b081ee' }]}
                   onPress={() => {
-                    setTimePickerVisibility(false);
+                    setShowTimePicker(false);
                   }}
                 >
                   <ThemedText style={[styles.modalButtonText, { color: 'white' }]}>Confirmar</ThemedText>
@@ -767,73 +636,15 @@ export default function AddTreatmentScreen() {
       )}
 
       {/* Modal do Dropdown */}
-      {(durationDropdownOpen || frequencyDropdownOpen) && (
-        <Modal
-          animationType="none"
-          transparent={true}
-          visible={true}
-          onRequestClose={closeDropdown}
-        >
-          <Pressable 
-            style={styles.dropdownModalOverlay} 
-            onPress={closeDropdown}
-          >
-            <View 
-              style={[
-                styles.dropdownModalContent,
-                {
-                  position: 'absolute',
-                  top: dropdownPosition.y,
-                  left: dropdownPosition.x,
-                  width: dropdownPosition.width,
-                }
-              ]}
-            >
-              {(activeDropdown === 'duration' ? durationUnitOptions : frequencyUnitOptions).map((option, index) => (
-                <TouchableOpacity
-                  key={option}
-                  style={[
-                    styles.dropdownModalItem,
-                    index === (activeDropdown === 'duration' ? durationUnitOptions : frequencyUnitOptions).length - 1 && styles.dropdownModalItemLast
-                  ]}
-                  onPress={() => {
-                    if (activeDropdown === 'duration') {
-                      setDurationUnit(option);
-                    } else {
-                      setFrequencyUnit(option);
-                    }
-                    closeDropdown();
-                  }}
-                >
-                  <View style={styles.dropdownModalItemContent}>
-                    <FontAwesome 
-                      name={activeDropdown === 'duration' 
-                        ? (option === 'dias' ? 'calendar' : option === 'semanas' ? 'calendar-o' : 'calendar-check-o')
-                        : (option === 'horas' ? 'clock-o' : 'calendar')
-                      } 
-                      size={16} 
-                      color="#8A8A8A" 
-                      style={styles.dropdownModalItemIcon}
-                    />
-                    <ThemedText style={styles.dropdownModalItemText}>{option}</ThemedText>
-                  </View>
-                  {(activeDropdown === 'duration' ? durationUnit : frequencyUnit) === option && (
-                    <FontAwesome name="check" size={16} color="#b081ee" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </Pressable>
-        </Modal>
-      )}
+      {/* Removed as per new_code, as dropdowns are now integrated into the main input */}
 
       <Modal
         animationType="slide"
         transparent={true}
-        visible={isMemberModalVisible}
-        onRequestClose={() => setMemberModalVisible(false)}
+        visible={showMedicationInfo}
+        onRequestClose={() => setShowMedicationInfo(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setMemberModalVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowMedicationInfo(false)}>
           <View style={styles.modalContent}>
             <ThemedText style={styles.modalTitle} lightColor="#2d1155" darkColor="#2d1155">Selecione o Membro</ThemedText>
             <FlatList
@@ -845,7 +656,7 @@ export default function AddTreatmentScreen() {
                   onPress={() => item.id && handleSelectMember(item.id)}
                 >
                   <ThemedText style={styles.modalItemText} lightColor="#2d1155" darkColor="#2d1155">{item.name}</ThemedText>
-                  {selectedMemberId === item.id && <FontAwesome name="check" size={16} color="#b081ee" />}
+                  {formData.member_id === item.id && <FontAwesome name="check" size={16} color="#b081ee" />}
                 </TouchableOpacity>
               )}
             />

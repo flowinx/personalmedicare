@@ -1,17 +1,29 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from './firebase';
 
 // Altere para a URL real do seu backend
 const BACKEND_URL = 'https://glasscare.lexbix.com:3001';
 
 export async function requestPasswordReset(email: string): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/auth/forgot-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.message || 'Erro ao solicitar recuperação de senha.');
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (error: any) {
+    console.error('[Auth] Erro ao enviar email de reset:', error);
+    
+    let errorMessage = 'Erro ao solicitar recuperação de senha.';
+    
+    if (error.code === 'auth/user-not-found') {
+      errorMessage = 'Email não encontrado. Verifique se o email está correto.';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = 'Email inválido.';
+    } else if (error.code === 'auth/too-many-requests') {
+      errorMessage = 'Muitas tentativas. Tente novamente em alguns minutos.';
+    } else if (error.code === 'auth/network-request-failed') {
+      errorMessage = 'Erro de conexão. Verifique sua internet.';
+    }
+    
+    throw new Error(errorMessage);
   }
 }
 

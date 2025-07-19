@@ -3,17 +3,17 @@ import { NavigationProp, useNavigation, useRoute } from '@react-navigation/nativ
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getAllTreatments } from '../../db/index';
 import { Member, getMemberById } from '../../db/members';
-import { getAllTreatments } from '../../db/memoryStorage';
 
 type RootStackParamList = {
-  'Editar Membro': { id: number };
-  'Novo Tratamento': { memberId: number };
-  'Dossiê do Membro': { id: number };
+  'Editar Membro': { id: string };
+  'Novo Tratamento': { memberId: string };
+  'Dossiê do Membro': { id: string };
 };
 
 interface Treatment {
-    id: number;
+    id: string;
     medication: string;
     dosage: string;
     start_datetime: string;
@@ -25,7 +25,7 @@ export default function MemberDetailScreen() {
   const route = useRoute();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   // @ts-ignore
-  const memberId = Number(route.params?.id);
+  const memberId = (route.params?.id ? String(route.params.id) : undefined);
   const [member, setMember] = useState<Member | null>(null);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
 

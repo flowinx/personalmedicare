@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { AnimatedCard } from '../../components/AnimatedCard';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { addMember } from '../../db/memoryStorage';
+import { addMember } from '../../db/index';
 import { useEntranceAnimation } from '../../utils/animations';
 
 export default function AddMemberScreen() {
@@ -16,8 +16,7 @@ export default function AddMemberScreen() {
   const [dob, setDob] = useState('');
   const [notes, setNotes] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
+  const { startAnimation } = useEntranceAnimation();
 
   useEffect(() => {
     startAnimation();
@@ -73,10 +72,8 @@ export default function AddMemberScreen() {
       return;
     }
 
-    setIsLoading(true);
-
     try {
-      const newMember = await addMember({
+      await addMember({
         name: name.trim(),
         relation: relation.trim(),
         dob: dob.trim(),
@@ -97,10 +94,8 @@ export default function AddMemberScreen() {
           },
         ]
       );
-    } catch (error) {
+    } catch {
       Alert.alert(t('error'), t('errorSavingData'));
-    } finally {
-      setIsLoading(false);
     }
   }, [name, relation, dob, notes, avatarUri, router, clearForm, t]);
 

@@ -11,10 +11,8 @@ export default function MedicationDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const medicationName = params.medicationName as string;
-  const medicationInfo = params.medicationInfo as string;
   const [aiMedicationInfo, setAiMedicationInfo] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>('');
   const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
@@ -24,11 +22,7 @@ export default function MedicationDetailsScreen() {
     }
   }, [medicationName, hasSearched]);
 
-  useEffect(() => {
-    if (aiMedicationInfo) {
-      setError('');
-    }
-  }, [aiMedicationInfo]);
+
 
   const fetchMedicationDetails = async () => {
     if (!medicationName) {
@@ -36,13 +30,12 @@ export default function MedicationDetailsScreen() {
     }
 
     setLoading(true);
-    setError('');
 
     try {
       const info = await fetchMedicationInfo(medicationName);
       setAiMedicationInfo(info);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao buscar informações');
+      console.error('Erro ao buscar informações do medicamento:', err);
     } finally {
       setLoading(false);
     }
@@ -77,15 +70,7 @@ export default function MedicationDetailsScreen() {
             <ActivityIndicator size="large" color="#b081ee" />
             <ThemedText style={styles.loadingText}>Carregando informações...</ThemedText>
           </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <FontAwesome name="exclamation-triangle" size={40} color="#dc3545" />
-            <ThemedText style={styles.errorText}>{error}</ThemedText>
-            <TouchableOpacity style={styles.retryButton} onPress={fetchMedicationDetails}>
-              <ThemedText style={styles.retryButtonText}>Tentar Novamente</ThemedText>
-            </TouchableOpacity>
-          </View>
-        ) : (
+                ) : (
           <>
             {/* Card - Informações do Medicamento */}
             <View style={styles.medicationCard}>

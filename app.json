@@ -40,7 +40,9 @@
         }
       ],
       "expo-sqlite",
-      "expo-notifications"
+      "expo-notifications",
+      "@react-native-firebase/app",
+      "expo-dev-client"
     ],
     "experiments": {
       "typedRoutes": true

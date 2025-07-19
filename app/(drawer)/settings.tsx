@@ -6,7 +6,6 @@ import { ThemedView } from '../../components/ThemedView';
 import { Language } from '../../constants/translations';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
-import { useThemeColor } from '../../hooks/useThemeColor';
 import { ThemeContext } from '../../theme/ThemeContext';
 
 export default function SettingsScreen() {
@@ -15,7 +14,6 @@ export default function SettingsScreen() {
   const { colorScheme, setColorScheme } = useContext(ThemeContext);
   const { language, setLanguage, t } = useLanguage();
   const darkTheme = colorScheme === 'dark';
-  const iconColor = useThemeColor({}, 'icon');
   const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
 
   useEffect(() => {

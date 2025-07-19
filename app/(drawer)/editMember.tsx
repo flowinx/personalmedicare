@@ -10,22 +10,21 @@ import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 
 type RootStackParamList = {
   Home: undefined;
-  'Editar Membro': { id: number };
+  'Editar Membro': { id: string };
 };
 
 export default function EditMemberScreen() {
   const route = useRoute();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   // @ts-ignore
-  const memberId = Number(route.params?.id);
+  const memberId = (route.params?.id ? String(route.params.id) : undefined);
 
   const [name, setName] = useState('');
   const [relation, setRelation] = useState('');
   const [dob, setDob] = useState('');
   const [notes, setNotes] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(false);
-  const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
+  const { fadeAnim, slideAnim, startAnimation } = useEntranceAnimation();
 
   useEffect(() => {
     startAnimation();
@@ -35,7 +34,7 @@ export default function EditMemberScreen() {
     if (!memberId) return;
     async function loadMemberData() {
       try {
-        const member = await getMemberById(memberId);
+        const member = await getMemberById(memberId!);
         if (member) {
           setName(member.name ?? '');
           setRelation(member.relation ?? '');
@@ -91,6 +90,11 @@ export default function EditMemberScreen() {
   }, [formatDate]);
 
   const handleUpdateMember = async () => {
+    if (!memberId) {
+      Alert.alert('Erro', 'ID do membro não encontrado.');
+      return;
+    }
+
     if (!name.trim()) {
       Alert.alert('Erro', 'O nome do membro é obrigatório.');
       return;
@@ -102,7 +106,7 @@ export default function EditMemberScreen() {
         relation,
         dob,
         notes,
-        avatar_uri: avatarUri || undefined
+        avatar_uri: avatarUri
       });
       Alert.alert('Sucesso', 'Membro atualizado!');
       navigation.goBack();
@@ -113,6 +117,11 @@ export default function EditMemberScreen() {
   };
   
   const handleDeleteMember = () => {
+    if (!memberId) {
+      Alert.alert('Erro', 'ID do membro não encontrado.');
+      return;
+    }
+
     Alert.alert(
       "Confirmar Exclusão",
       `Você tem certeza que deseja excluir ${name}? Esta ação não pode ser desfeita.`,
@@ -224,7 +233,7 @@ export default function EditMemberScreen() {
           </Animated.View>
 
           {/* Buttons */}
-          <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+          <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim }]}>
             <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.goBack()}>
               <ThemedText style={styles.secondaryButtonText}>Cancelar</ThemedText>
             </TouchableOpacity>

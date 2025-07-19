@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
@@ -7,8 +6,15 @@ import { ThemedView } from '../../components/ThemedView';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 import { askGeminiChat } from '../../services/gemini';
 
-function MessageBubble({ item }: { item: any }) {
+interface Message {
+  from: 'user' | 'ia';
+  text: string;
+  time: string;
+}
+
+function MessageBubble({ item }: { item: Message }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -16,6 +22,7 @@ function MessageBubble({ item }: { item: any }) {
       useNativeDriver: true,
     }).start();
   }, []);
+  
   const isUser = item.from === 'user';
   
   return (
@@ -36,12 +43,11 @@ function MessageBubble({ item }: { item: any }) {
 }
 
 export default function ChatInteligenteScreen() {
-  const router = useRouter();
-  const [messages, setMessages] = useState<{ from: string; text: string; time: string }[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
-  const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
+  const flatListRef = useRef<FlatList<Message>>(null);
+  const { startAnimation } = useEntranceAnimation();
 
   useEffect(() => {
     startAnimation();
@@ -49,28 +55,39 @@ export default function ChatInteligenteScreen() {
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
-    setMessages(prev => [
-      ...prev,
-      { from: 'user', text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }
-    ]);
+    
+    const userMessage: Message = {
+      from: 'user',
+      text,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
+    
     try {
-              const response = await askGeminiChat(text);
-      setMessages(prev => [
-        ...prev,
-        { from: 'ia', text: response, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }
-      ]);
+      const response = await askGeminiChat(text);
+      const iaMessage: Message = {
+        from: 'ia',
+        text: response,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      };
+      
+      setMessages(prev => [...prev, iaMessage]);
+      
+      // Scroll para o final após adicionar mensagem
       setTimeout(() => {
-        if (flatListRef.current) {
-          flatListRef.current.scrollToEnd({ animated: true });
-        }
+        flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
-    } catch (e: any) {
-      setMessages(prev => [
-        ...prev,
-        { from: 'ia', text: 'Desculpe, não consegui responder agora. Tente novamente.', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }
-      ]);
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      const errorMessage: Message = {
+        from: 'ia',
+        text: 'Desculpe, não consegui responder agora. Tente novamente.',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setLoading(false);
     }

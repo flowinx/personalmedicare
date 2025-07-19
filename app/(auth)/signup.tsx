@@ -1,7 +1,7 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { signup } from '../../services/auth';
+import { signUpWithEmail } from '../../services/firebase';
 
 export default function SignupScreen() {
   const [fullname, setFullname] = useState('');
@@ -20,13 +20,30 @@ export default function SignupScreen() {
       Alert.alert('Erro', 'Preencha todos os campos.');
       return;
     }
+    
+    if (password.length < 6) {
+      Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+    
     setLoading(true);
     try {
-      await signup(fullname, email, password);
+      await signUpWithEmail(email, password, fullname);
       Alert.alert('Sucesso', 'Cadastro realizado! Faça login para continuar.');
       router.replace('/(auth)/login');
     } catch (e: any) {
-      Alert.alert('Erro', e.message || 'Erro ao cadastrar usuário.');
+      console.error('Erro no cadastro:', e);
+      let errorMessage = 'Erro ao cadastrar usuário.';
+      
+      if (e.code === 'auth/email-already-in-use') {
+        errorMessage = 'Este email já está em uso.';
+      } else if (e.code === 'auth/invalid-email') {
+        errorMessage = 'Email inválido.';
+      } else if (e.code === 'auth/weak-password') {
+        errorMessage = 'A senha é muito fraca.';
+      }
+      
+      Alert.alert('Erro', errorMessage);
     } finally {
       setLoading(false);
     }
