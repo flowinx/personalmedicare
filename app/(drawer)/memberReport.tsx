@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
-import { Config } from '../../constants/Config';
 import { Member, getMemberById } from '../../db/members';
 import { getAllTreatments } from '../../db/memoryStorage';
 
@@ -83,21 +82,27 @@ export default function MemberReportScreen() {
     ).join('\n');
     const prompt = `Considere o seguinte histórico de medicamentos consumidos:\n${historico}\n\nFaça uma análise detalhada sobre a situação do paciente, possíveis riscos, recomendações e pontos de atenção. Responda de forma clara e objetiva. Use frases curtas, destaque pontos importantes com emojis e, o mais importante, NÃO utilize nenhuma formatação markdown (como **, *, #, etc.).`;
     try {
-      console.log('[MemberReport] Valor da GROQ_API_KEY:', Config.GROQ_API_KEY);
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      console.log('[MemberReport] Gerando relatório com Gemini...');
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyDLL64gXACWEcnmSSJyjZV_pdVSTDn5yus`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${Config.GROQ_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama3-8b-8192',
-          messages: [{ role: 'user', content: prompt }],
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ]
         }),
       });
       const data = await response.json();
       console.log('Resposta da IA:', data);
-      const texto = data.choices?.[0]?.message?.content || '';
+      const texto = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       setIaAnalysis(texto);
     } catch (e) {
       setIaAnalysis('Erro ao buscar análise da IA.');

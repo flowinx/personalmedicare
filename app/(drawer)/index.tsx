@@ -5,10 +5,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Animated, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedView } from '../../components/ThemedView';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useProfile } from '../../contexts/ProfileContext';
 import { Member, getAllMembers } from '../../db/members';
 import { Treatment, getAllTreatments } from '../../db/memoryStorage';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
-const logo = require('../../assets/images/logo.png');
 
 type NavigationProp = {
   navigate: (screen: keyof RootStackParamList, params?: any) => void;
@@ -42,6 +42,7 @@ interface Alert {
 export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { t } = useLanguage();
+  const { profile } = useProfile();
   const [members, setMembers] = useState<Member[]>([]);
   const [todaysSchedule, setTodaysSchedule] = useState<ScheduleItem[]>([]);
   const [search, setSearch] = useState('');
@@ -206,9 +207,14 @@ export default function HomeScreen() {
         <View style={styles.logoContainer}>
           <View style={styles.logoWrapper}>
             <View style={styles.logoIconContainer}>
-              <Image source={logo} style={styles.logoImage} resizeMode="contain" />
+              <Image source={require('../../assets/images/medica-avatar.png')} style={styles.logoImage} resizeMode="contain" />
             </View>
-            <Text style={styles.logoText}>Personal MediCare</Text>
+            <View style={styles.greetingText}>
+              <Text style={styles.greetingTitle}>
+                {t('hello')}, {profile?.name?.split(' ')[0] || t('user')}!
+              </Text>
+              <Text style={styles.greetingSubtitle}>{t('howAreYouToday')}</Text>
+            </View>
           </View>
         </View>
         <TouchableOpacity 
@@ -230,7 +236,7 @@ export default function HomeScreen() {
           <Ionicons name="search" size={20} color="#8A8A8A" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Buscar medicamentos..."
+            placeholder={t('searchMedications')}
             placeholderTextColor="#8A8A8A"
             value={search}
             onChangeText={setSearch}
@@ -252,27 +258,33 @@ export default function HomeScreen() {
               <Text style={styles.emptyText}>{t('noTreatmentsToday')}</Text>
             </View>
           ) : (
-            <View style={styles.scheduleContainer}>
-              <View style={styles.tableHeader}>
-                <View style={styles.headerMember}>
-                  <Text style={styles.headerText}>{t('members')}</Text>
+            <>
+              {/* Cabeçalho da Tabela - Fixo */}
+                              <View style={styles.tableHeader}>
+                  <View style={[styles.headerCell, { flex: 1.5 }]}>
+                    <Text style={[styles.headerText, { textAlign: 'center', width: '100%' }]}>{t('members')}</Text>
+                  </View>
+                  <View style={[styles.headerCell, { flex: 2 }]}>
+                    <Text style={[styles.headerText, { textAlign: 'left', width: '100%' }]}>{t('medication')}</Text>
+                  </View>
+                  <View style={[styles.headerCell, { flex: 1.2 }]}>
+                    <Text style={[styles.headerText, { textAlign: 'center', width: '100%' }]}>Horário</Text>
+                  </View>
+                  <View style={[styles.headerCell, { flex: 1 }]}>
+                    <Text style={[styles.headerText, { textAlign: 'center', width: '100%' }]}>{t('actions')}</Text>
+                  </View>
                 </View>
-                <View style={styles.headerMedication}>
-                  <Text style={styles.headerText}>{t('medication')}</Text>
-                </View>
-                <View style={styles.headerTime}>
-                  <Text style={styles.headerText}>{t('startTime')}</Text>
-                </View>
-                <View style={styles.headerActions}>
-                  <Text style={styles.headerText}>{t('actions')}</Text>
-                </View>
-              </View>
 
-              <ScrollView style={styles.tableContent} showsVerticalScrollIndicator={false}>
+              {/* ScrollView para as linhas da tabela */}
+              <ScrollView 
+                style={styles.tableScrollView}
+                showsVerticalScrollIndicator={true}
+                contentContainerStyle={styles.tableScrollContent}
+              >
                 {filteredSchedule.map((item, index) => (
                   <View key={item.id} style={styles.tableRow}>
-                    <View style={styles.cellMember}>
-                      <View style={styles.memberInfo}>
+                    <View style={[styles.cell, { flex: 1.5 }]}>
+                      <View style={styles.memberCell}>
                         {item.member_avatar_uri ? (
                           <Image source={{ uri: item.member_avatar_uri }} style={styles.memberAvatar} />
                         ) : (
@@ -280,11 +292,10 @@ export default function HomeScreen() {
                             <FontAwesome name="user" size={12} color="#b081ee" />
                           </View>
                         )}
-                        <Text style={styles.memberName} numberOfLines={1}>{item.member_name}</Text>
                       </View>
                     </View>
                     
-                    <View style={styles.cellMedication}>
+                    <View style={[styles.cell, { flex: 2, paddingRight: 8 }]}>
                       <Text style={styles.medicationText} numberOfLines={2}>
                         <Text style={styles.medicationName}>{item.medication}</Text>
                         {item.dosage && (
@@ -293,7 +304,7 @@ export default function HomeScreen() {
                       </Text>
                     </View>
                     
-                    <View style={styles.cellTime}>
+                    <View style={[styles.cell, { flex: 1.2 }]}>
                       <Text style={styles.timeText}>
                         {new Date(item.scheduled_time).toLocaleTimeString([], { 
                           hour: '2-digit', 
@@ -302,34 +313,36 @@ export default function HomeScreen() {
                       </Text>
                     </View>
                     
-                    <View style={styles.cellActions}>
-                      <TouchableOpacity 
-                        style={styles.actionButton} 
-                        onPress={() => handleViewTreatment(item)}
-                      >
-                        <FontAwesome name="eye" size={14} color="#b081ee" />
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={styles.actionButton} 
-                        onPress={() => handleEditTreatment(item)}
-                      >
-                        <FontAwesome name="edit" size={14} color="#b081ee" />
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={[styles.actionButton, item.status === 'tomado' && styles.actionButtonDone]} 
-                        onPress={() => handleMarkAsDone(item.id)}
-                      >
-                        <FontAwesome 
-                          name={item.status === 'tomado' ? 'check' : 'circle-o'} 
-                          size={14} 
-                          color={item.status === 'tomado' ? '#fff' : '#b081ee'} 
-                        />
-                      </TouchableOpacity>
+                    <View style={[styles.cell, { flex: 1, justifyContent: 'center', alignItems: 'flex-end', paddingRight: 4 }]}>
+                      <View style={styles.actionIcons}>
+                        <TouchableOpacity 
+                          style={styles.actionIcon} 
+                          onPress={() => handleViewTreatment(item)}
+                        >
+                          <FontAwesome name="eye" size={14} color="#b081ee" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={styles.actionIcon} 
+                          onPress={() => handleEditTreatment(item)}
+                        >
+                          <FontAwesome name="edit" size={14} color="#b081ee" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.actionIcon, item.status === 'tomado' && styles.actionIconDone]} 
+                          onPress={() => handleMarkAsDone(item.id)}
+                        >
+                          <FontAwesome 
+                            name={item.status === 'tomado' ? 'check' : 'circle-o'} 
+                            size={14} 
+                            color={item.status === 'tomado' ? '#fff' : '#b081ee'} 
+                          />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                 ))}
               </ScrollView>
-            </View>
+            </>
           )}
         </Animated.View>
 
@@ -417,6 +430,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    paddingBottom: 20,
   },
   topBar: {
     flexDirection: 'row',
@@ -437,19 +451,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#f8f9fa',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 15,
     borderWidth: 2,
     borderColor: '#e9ecef',
   },
   logoImage: {
-    width: 24,
-    height: 24,
+    width: 32,
+    height: 32,
   },
   logoText: {
     fontSize: 20,
@@ -510,54 +524,53 @@ const styles = StyleSheet.create({
     color: '#b081ee',
   },
   scheduleContainer: {
-    // No specific styles needed here, content will be handled by ScrollView
+    // Container for the schedule table
+  },
+  tableScrollView: {
+    maxHeight: 250,
+  },
+  tableScrollContent: {
+    paddingBottom: 8,
   },
   tableHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  headerMember: {
-    flex: 1,
-    textAlign: 'left',
-  },
-  headerMedication: {
-    flex: 2,
-    textAlign: 'left',
-  },
-  headerTime: {
-    flex: 1,
-    textAlign: 'left',
-  },
-  headerActions: {
-    flex: 1,
-    textAlign: 'right',
+  headerCell: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
   },
   headerText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#2d1155',
-  },
-  tableContent: {
-    // No specific styles needed here, content will be handled by ScrollView
+    textAlign: 'center',
   },
   tableRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 18,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f3f4',
-    minHeight: 60,
+    minHeight: 65,
   },
-  cellMember: {
+  cell: {
     flex: 1,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
     justifyContent: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
+  },
+  memberCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   memberInfo: {
     flexDirection: 'row',
@@ -567,7 +580,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    marginRight: 8,
   },
   memberAvatarPlaceholder: {
     width: 32,
@@ -583,8 +595,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cellMedication: {
-    flex: 2,
-    paddingHorizontal: 4,
+    flex: 2.5,
+    paddingHorizontal: 6,
     justifyContent: 'center',
     paddingVertical: 4,
   },
@@ -606,7 +618,7 @@ const styles = StyleSheet.create({
   },
   cellTime: {
     flex: 1,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     justifyContent: 'center',
     paddingVertical: 4,
   },
@@ -618,12 +630,26 @@ const styles = StyleSheet.create({
   },
   cellActions: {
     flex: 1,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     paddingVertical: 4,
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
     gap: 6,
+  },
+  actionIcons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 4,
+  },
+  actionIcon: {
+    padding: 4,
+    borderRadius: 4,
+    backgroundColor: '#f8f9fa',
+  },
+  actionIconDone: {
+    backgroundColor: '#34C759',
   },
   actionButton: {
     padding: 4,
@@ -729,6 +755,7 @@ const styles = StyleSheet.create({
     borderColor: '#e9ecef',
     marginBottom: 15,
     marginHorizontal: 20,
+    marginTop: 25,
   },
   searchIcon: {
     marginRight: 10,
@@ -737,5 +764,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     flex: 1,
     color: '#333',
+  },
+  greetingText: {
+    flex: 1,
+  },
+  greetingTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2d1155',
+    marginBottom: 2,
+  },
+  greetingSubtitle: {
+    fontSize: 14,
+    color: '#6c757d',
   },
 }); 

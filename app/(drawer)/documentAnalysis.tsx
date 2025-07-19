@@ -8,7 +8,7 @@ import { Member, getAllMembers } from '../../db/members';
 import { saveDocument } from '../../db/memoryStorage';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 import { extractTextFromDocument } from '../../services/documentParser';
-import { analyzeDocument } from '../../services/groq';
+import { analyzeDocument } from '../../services/gemini';
 
 export default function DocumentAnalysisScreen() {
   const [document, setDocument] = useState<DocumentPicker.DocumentPickerResult | null>(null);
@@ -61,33 +61,63 @@ export default function DocumentAnalysisScreen() {
     const formData = new FormData();
     // @ts-ignore
     formData.append('file', { uri: fileUri, name: fileName, type: mimeType });
+    
     try {
-      console.log('[DocumentAnalysis] Enviando PDF para webhook:', N8NConfig.DOCUMENT_ANALYSIS_WEBHOOK);
+      console.log('[DocumentAnalysis] === INICIANDO ENVIO PARA WEBHOOK ===');
+      console.log('[DocumentAnalysis] URL do webhook:', N8NConfig.DOCUMENT_ANALYSIS_WEBHOOK);
+      console.log('[DocumentAnalysis] Nome do arquivo:', fileName);
+      console.log('[DocumentAnalysis] Tipo MIME:', mimeType);
+      console.log('[DocumentAnalysis] URI do arquivo:', fileUri);
+      
       const response = await fetch(N8NConfig.DOCUMENT_ANALYSIS_WEBHOOK, {
         method: 'POST',
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+          'Accept': 'application/json'
+        },
         body: formData,
       });
+      
+      console.log('[DocumentAnalysis] Status da resposta:', response.status);
+      console.log('[DocumentAnalysis] Headers da resposta:', response.headers);
+      
       if (!response.ok) {
-        throw new Error('Erro ao enviar PDF para análise.');
+        const errorText = await response.text();
+        console.error('[DocumentAnalysis] Erro na resposta:', errorText);
+        throw new Error(`Erro ao enviar PDF para análise. Status: ${response.status}`);
       }
+      
       const data = await response.json();
-      return data.text || data.result || 'Nenhum texto extraído.';
+      console.log('[DocumentAnalysis] Dados recebidos:', data);
+      
+      const result = data.text || data.result || data.content || 'Nenhum texto extraído.';
+      console.log('[DocumentAnalysis] Texto extraído:', result.substring(0, 100) + '...');
+      
+      return result;
     } catch (error) {
-      console.error('Erro no webhook:', error);
-      throw new Error('Erro ao processar o PDF no servidor.');
+      console.error('[DocumentAnalysis] Erro detalhado no webhook:', error);
+      console.error('[DocumentAnalysis] Stack trace:', error instanceof Error ? error.stack : 'N/A');
+      throw new Error(`Erro ao processar o PDF no servidor: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   }
 
   const processDocument = useCallback(async (doc: DocumentPicker.DocumentPickerResult) => {
     if (doc.canceled || !selectedMemberId) return;
 
+    console.log('[DocumentAnalysis] === INICIANDO PROCESSAMENTO ===');
+    console.log('[DocumentAnalysis] Documento selecionado:', doc.assets[0]);
+    console.log('[DocumentAnalysis] Membro selecionado ID:', selectedMemberId);
+
     setIsLoading(true);
     try {
       const asset = doc.assets[0];
+      console.log('[DocumentAnalysis] Tipo do arquivo:', asset.mimeType);
+      
       if (asset.mimeType === 'application/pdf') {
+        console.log('[DocumentAnalysis] Processando PDF via webhook...');
         setProcessingStep('Enviando PDF para análise, aguarde...');
         const webhookResult = await sendPdfToWebhook(asset.uri, asset.name, asset.mimeType);
+        console.log('[DocumentAnalysis] Resultado do webhook recebido');
         setAnalysis(webhookResult);
         setProcessingStep('Salvando documento...');
         const documentData = {
@@ -99,6 +129,7 @@ export default function DocumentAnalysisScreen() {
           created_at: new Date().toISOString()
         };
         await saveDocument(documentData);
+        console.log('[DocumentAnalysis] Documento salvo com sucesso');
         setProcessingStep('');
       } else {
         setProcessingStep('Extraindo texto do documento...');

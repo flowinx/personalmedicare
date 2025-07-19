@@ -1,18 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, FlatList, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
-import { askGroqChat } from '../../services/groq';
-
-const FAQS = [
-  { icon: 'heart', text: 'Como prevenir doenças cardíacas?' },
-  { icon: 'smile-o', text: 'Sintomas de ansiedade e como lidar' },
-  { icon: 'calendar', text: 'Quando procurar um médico?' },
-  { icon: 'leaf', text: 'Dicas de alimentação saudável' },
-];
+import { askGeminiChat } from '../../services/gemini';
 
 function MessageBubble({ item }: { item: any }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -63,7 +56,7 @@ export default function ChatInteligenteScreen() {
     setInput('');
     setLoading(true);
     try {
-      const response = await askGroqChat(text);
+              const response = await askGeminiChat(text);
       setMessages(prev => [
         ...prev,
         { from: 'ia', text: response, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }
@@ -96,62 +89,71 @@ export default function ChatInteligenteScreen() {
     <KeyboardAvoidingView 
       style={{ flex: 1 }} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? -50 : 0}
     >
       <ThemedView style={styles.container}>
-        <View style={styles.faqContainer}>
-          <ThemedText style={styles.faqTitle} lightColor="#2d1155" darkColor="#2d1155">Perguntas frequentes:</ThemedText>
-          <View style={styles.faqList}>
-            {FAQS.map(faq => (
-              <TouchableOpacity key={faq.text} style={styles.faqButton} onPress={() => sendMessage(faq.text)}>
-                <Ionicons name={faq.icon as any} size={18} color="#b081ee" style={{ marginRight: 6 }} />
-                <ThemedText style={styles.faqButtonText} lightColor="#2d1155" darkColor="#2d1155">{faq.text}</ThemedText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-        
         <View style={styles.chatContainer}>
-          <FlatList
-            data={messages}
-            keyExtractor={(item, index) => index.toString()}
-            renderItem={({ item }) => (
-              <MessageBubble item={item} />
-            )}
-            contentContainerStyle={styles.messagesList}
-            ref={flatListRef}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            showsVerticalScrollIndicator={false}
-          />
-        </View>
-        
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.textInput}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Digite sua pergunta..."
-            placeholderTextColor="#999"
-            multiline
-            maxLength={500}
-            onFocus={() => {
-              setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
-              }, 300);
-            }}
-          />
-          <TouchableOpacity 
-            style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]} 
-            onPress={() => sendMessage(input)}
-            disabled={!input.trim() || loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Ionicons name="send" size={20} color="white" />
-            )}
-          </TouchableOpacity>
+          {/* Header do Chat */}
+          <View style={styles.chatHeader}>
+            <View style={styles.agentInfo}>
+              <Image 
+                source={require('../../assets/images/medica-avatar.png')} 
+                style={styles.agentAvatar}
+              />
+              <View style={styles.agentDetails}>
+                <ThemedText style={styles.agentName}>Melissa Parker</ThemedText>
+                <ThemedText style={styles.agentEmail}>suporte@flowinx.com</ThemedText>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.addButton}>
+              <Ionicons name="add" size={24} color="#333" />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.messagesContainer}>
+            <FlatList
+              data={messages}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={({ item }) => (
+                <MessageBubble item={item} />
+              )}
+              contentContainerStyle={styles.messagesList}
+              ref={flatListRef}
+              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+              onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+          
+          <View style={styles.inputContainer}>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.textInput}
+                value={input}
+                onChangeText={setInput}
+                placeholder="Type your message..."
+                placeholderTextColor="#999"
+                multiline
+                maxLength={500}
+                onFocus={() => {
+                  setTimeout(() => {
+                    flatListRef.current?.scrollToEnd({ animated: true });
+                  }, 300);
+                }}
+              />
+              <TouchableOpacity 
+                style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]} 
+                onPress={() => sendMessage(input)}
+                disabled={!input.trim() || loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Ionicons name="arrow-up" size={20} color="white" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </ThemedView>
     </KeyboardAvoidingView>
@@ -161,8 +163,8 @@ export default function ChatInteligenteScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    paddingBottom: 10, // Reduzir padding bottom para dar mais espaço
+    backgroundColor: '#f8f9fa',
+    padding: 10,
   },
   bubble: {
     maxWidth: '95%',
@@ -253,98 +255,138 @@ const styles = StyleSheet.create({
     backgroundColor: '#b081ee',
   },
   chatContainer: {
-    flex: 1,
-    marginBottom: 10, // Adicionar margem para separar do input
+    height: '90%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+    overflow: 'hidden',
   },
   messageContainer: {
     padding: 10,
   },
   messageText: {
     fontSize: 16,
+    lineHeight: 20,
   },
   userMessage: {
     alignSelf: 'flex-end',
     backgroundColor: '#b081ee',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 10,
-    maxWidth: '80%',
   },
   botMessage: {
     alignSelf: 'flex-start',
-    backgroundColor: 'white',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 10,
-    maxWidth: '80%',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    backgroundColor: '#f5f5f5',
   },
   userMessageText: {
-    color: 'white',
+    color: '#fff',
   },
   botMessageText: {
-    color: '#2d1155',
+    color: '#333',
   },
   inputContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-end', // Alinhar ao final para melhor comportamento com multiline
-    padding: 10,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 10, // Mais padding no iOS
-    backgroundColor: 'transparent',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    position: 'relative',
   },
   textInput: {
     flex: 1,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#b081ee',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingRight: 60,
     fontSize: 16,
-    color: '#2d1155',
-    marginRight: 8,
-    maxHeight: 100, // Limitar altura máxima
-    minHeight: 40, // Altura mínima
+    maxHeight: 100,
+    minHeight: 50,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   sendButton: {
     backgroundColor: '#b081ee',
-    borderRadius: 10,
-    padding: 12,
-    alignItems: 'center',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
-    minHeight: 40, // Garantir altura mínima
+    alignItems: 'center',
+    position: 'absolute',
+    right: 10,
+    top: 5,
   },
   sendButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#d4b5f7',
   },
   messagesList: {
     paddingVertical: 10,
     paddingBottom: 20, // Mais espaço no final da lista
   },
   messageBubble: {
-    maxWidth: '95%',
+    maxWidth: '80%',
     borderRadius: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    marginBottom: 10,
-    alignSelf: 'flex-start',
-    backgroundColor: '#f5f5f5',
-    shadowColor: '#b081ee',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 1,
+    marginBottom: 8,
+    marginHorizontal: 10,
   },
   messageTime: {
     color: '#b081ee',
     fontSize: 12,
     marginTop: 4,
     textAlign: 'right',
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#fff',
+  },
+  agentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  agentAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 2,
+    borderColor: '#b081ee',
+  },
+  agentDetails: {
+    flexDirection: 'column',
+  },
+  agentName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  agentEmail: {
+    fontSize: 12,
+    color: '#666',
+  },
+  addButton: {
+    padding: 5,
+  },
+  messagesContainer: {
+    flex: 1,
   },
 }); 

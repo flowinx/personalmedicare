@@ -13,6 +13,7 @@ import ChatInteligenteScreen from './chatInteligente';
 import DocumentAnalysisScreen from './documentAnalysis';
 import EditMemberScreen from './editMember';
 import HomeScreen from './index';
+import MedicationDetailsScreen from './medicationDetails';
 import MemberDetailScreen from './memberDetail';
 import MemberReportScreen from './memberReport';
 import ProfileScreen from './profile';
@@ -142,6 +143,12 @@ export default function DrawerLayout() {
       <Drawer.Screen name="Detalhes do Tratamento" component={TreatmentDetailScreen} options={{ 
         drawerItemStyle: { display: 'none' }, 
         headerTitle: t('treatmentDetails'),
+        headerTintColor: '#2d1155',
+        headerStyle: { backgroundColor: '#fff' },
+      }} />
+      <Drawer.Screen name="Detalhes do Medicamento" component={MedicationDetailsScreen} options={{ 
+        drawerItemStyle: { display: 'none' }, 
+        headerTitle: 'Detalhes do Medicamento',
         headerTintColor: '#2d1155',
         headerStyle: { backgroundColor: '#fff' },
       }} />

@@ -30,6 +30,10 @@ export interface Translations {
   noTreatmentsToday: string;
   noMembers: string;
   viewAll: string;
+  hello: string;
+  user: string;
+  howAreYouToday: string;
+  searchMedications: string;
 
   // Membros
   addNewMember: string;
@@ -83,7 +87,6 @@ export interface Translations {
   information: string;
   aboutApp: string;
   privacyPolicy: string;
-  logout: string;
   portuguese: string;
   english: string;
 
@@ -92,10 +95,6 @@ export interface Translations {
   name: string;
   email: string;
   updateProfile: string;
-
-  // Chat
-  intelligentChat: string;
-  documentAnalysis: string;
 
   // Mensagens
   success: string;
@@ -157,6 +156,10 @@ export const translations: Record<Language, Translations> = {
     noTreatmentsToday: 'Nenhum tratamento agendado para hoje',
     noMembers: 'Nenhum membro cadastrado',
     viewAll: 'Ver Todos',
+    hello: 'Olá',
+    user: 'Usuário',
+    howAreYouToday: 'Como você está hoje?',
+    searchMedications: 'Buscar medicamentos',
 
     // Membros
     addNewMember: 'Novo Membro',
@@ -219,10 +222,6 @@ export const translations: Record<Language, Translations> = {
     email: 'E-mail',
     updateProfile: 'Atualizar Perfil',
 
-    // Chat
-    intelligentChat: 'Chat Inteligente',
-    documentAnalysis: 'Análise de Documentos',
-
     // Mensagens
     success: 'Sucesso',
     error: 'Erro',
@@ -281,6 +280,10 @@ export const translations: Record<Language, Translations> = {
     noTreatmentsToday: 'No treatments scheduled for today',
     noMembers: 'No members registered',
     viewAll: 'View All',
+    hello: 'Hello',
+    user: 'User',
+    howAreYouToday: 'How are you today?',
+    searchMedications: 'Search medications',
 
     // Members
     addNewMember: 'New Member',
@@ -301,7 +304,6 @@ export const translations: Record<Language, Translations> = {
     // Treatments
     addTreatment: 'New Treatment',
     editTreatment: 'Edit Treatment',
-    treatmentDetails: 'Treatment Details',
     medication: 'Medication',
     dosage: 'Dosage',
     frequency: 'Frequency',
@@ -323,7 +325,6 @@ export const translations: Record<Language, Translations> = {
     // Dossier
     medicalDossier: 'Medical Dossier',
     selectMemberDossier: 'Select a member to view their complete dossier',
-    memberDossier: 'Member Dossier',
     noMembersFound: 'No members found',
     addFamilyMembers: 'Add family members to generate their medical dossiers',
     loadingMembers: 'Loading members...',
@@ -336,7 +337,6 @@ export const translations: Record<Language, Translations> = {
     information: 'Information',
     aboutApp: 'About App',
     privacyPolicy: 'Privacy Policy',
-    logout: 'Logout',
     portuguese: 'Português (Brasil)',
     english: 'English',
 
@@ -345,10 +345,6 @@ export const translations: Record<Language, Translations> = {
     name: 'Name',
     email: 'Email',
     updateProfile: 'Update Profile',
-
-    // Chat
-    intelligentChat: 'Intelligent Chat',
-    documentAnalysis: 'Document Analysis',
 
     // Messages
     success: 'Success',
