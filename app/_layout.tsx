@@ -5,7 +5,6 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { LanguageProvider } from '../contexts/LanguageContext';
 import { ProfileProvider } from '../contexts/ProfileContext';
-import { initDatabase } from '../db/index';
 import { ThemeProvider } from '../theme/ThemeContext';
 
 export { ErrorBoundary } from 'expo-router';
@@ -20,16 +19,15 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    async function setupDatabase() {
+    const initDatabase = async () => {
       try {
-        console.log('Inicializando banco de dados no layout principal...');
         await initDatabase();
-        console.log('Banco de dados inicializado com sucesso no layout principal');
-      } catch (e) {
-        console.error("Erro ao inicializar o banco de dados", e);
+      } catch (error) {
+        console.error('Erro ao inicializar banco de dados:', error);
       }
-    }
-    setupDatabase();
+    };
+    
+    initDatabase();
   }, []);
 
   useEffect(() => {

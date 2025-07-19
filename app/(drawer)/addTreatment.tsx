@@ -36,20 +36,12 @@ export default function AddTreatmentScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   
-  console.log('[AddTreatment] Component mounted with route params:', route.params);
-  
   // Extrair memberId dos parâmetros da rota
   const memberId = (route.params as any)?.memberId ? Number((route.params as any).memberId) : undefined;
   const treatmentId = (route.params as any)?.treatmentId ? Number((route.params as any).treatmentId) : undefined;
   const mode = (route.params as any)?.mode || 'add';
   const isMemberLocked = !!memberId;
   const isEditMode = mode === 'edit';
-  
-  console.log('[AddTreatment] Extracted memberId:', memberId);
-  console.log('[AddTreatment] Extracted treatmentId:', treatmentId);
-  console.log('[AddTreatment] Mode:', mode);
-  console.log('[AddTreatment] isMemberLocked:', isMemberLocked);
-  console.log('[AddTreatment] isEditMode:', isEditMode);
 
   // Atualizar título da tela baseado no modo
   useEffect(() => {
@@ -120,17 +112,11 @@ export default function AddTreatmentScreen() {
         const allMembers = await getAllMembers();
         setMembers(allMembers);
 
-        console.log('[AddTreatment] Params memberId:', memberId);
-        console.log('[AddTreatment] Current selectedMemberId:', selectedMemberId);
-        console.log('[AddTreatment] All members:', allMembers.map(m => ({ id: m.id, name: m.name })));
-
         // Prioriza sempre o memberId vindo da navegação
         if (memberId) {
-          console.log('[AddTreatment] Setting memberId from params:', memberId);
           setSelectedMemberId(memberId);
         } else if (!selectedMemberId && allMembers.length > 0) {
           // Se não há memberId nos parâmetros e nenhum membro selecionado, seleciona o primeiro
-          console.log('[AddTreatment] No memberId in params, selecting first member:', allMembers[0].id);
           setSelectedMemberId(allMembers[0].id || null);
         }
       }
@@ -160,7 +146,6 @@ export default function AddTreatmentScreen() {
           try {
             const treatment = await getTreatmentById(treatmentId);
             if (treatment) {
-              console.log('[AddTreatment] Loading treatment data:', treatment);
               
               setSelectedMemberId(treatment.member_id);
               setMedication(treatment.medication);
@@ -259,7 +244,6 @@ export default function AddTreatmentScreen() {
   }
 
   const handleConfirmDate = (date: Date) => {
-    console.log('[handleConfirmDate] Função chamada com data:', date);
     const newDate = new Date(startDate);
     newDate.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
     setStartDate(newDate);
@@ -267,7 +251,6 @@ export default function AddTreatmentScreen() {
   };
   
   const handleConfirmTime = (date: Date) => {
-    console.log('[handleConfirmTime] Função chamada com data:', date);
     const newDate = new Date(startDate);
     newDate.setHours(date.getHours(), date.getMinutes());
     setStartDate(newDate);
@@ -275,63 +258,34 @@ export default function AddTreatmentScreen() {
   };
 
   const openMedicationInfo = async () => {
-    console.log('=== INÍCIO DA FUNÇÃO openMedicationInfo ===');
-    console.log('[openMedicationInfo] Função chamada!');
-    console.log('[openMedicationInfo] Iniciando busca para:', medication);
-    console.log('[openMedicationInfo] Tipo de medication:', typeof medication);
-    console.log('[openMedicationInfo] medication.trim():', medication.trim());
-    console.log('[openMedicationInfo] medication.trim().length:', medication.trim().length);
     
     if (!medication.trim()) {
-      console.log('[openMedicationInfo] Medicamento vazio, retornando');
+      Alert.alert('Aviso', 'Digite o nome do medicamento primeiro.');
       return;
     }
     
     // Verificar e fechar modais antes de navegar
-    console.log('[openMedicationInfo] Verificando estado dos modais...');
-    console.log('[openMedicationInfo] isMemberModalVisible:', isMemberModalVisible);
-    console.log('[openMedicationInfo] isDatePickerVisible:', isDatePickerVisible);
-    console.log('[openMedicationInfo] isTimePickerVisible:', isTimePickerVisible);
-    // console.log('[openMedicationInfo] isUnitPickerVisible:', isUnitPickerVisible); // Removed
     
     // Fechar todos os modais
     if (isMemberModalVisible) {
-      console.log('[openMedicationInfo] Fechando modal de membros...');
       setMemberModalVisible(false);
     }
     if (isDatePickerVisible) {
-      console.log('[openMedicationInfo] Fechando date picker...');
       setDatePickerVisibility(false);
     }
     if (isTimePickerVisible) {
-      console.log('[openMedicationInfo] Fechando time picker...');
       setTimePickerVisibility(false);
     }
-    // if (isUnitPickerVisible) { // Removed
-    //   console.log('[openMedicationInfo] Fechando unit picker...');
-    //   setUnitPickerVisible(false);
-    // }
     
     // Aguardar um pouco para os modais fecharem
     await new Promise(resolve => setTimeout(resolve, 100));
     
     setLoadingObservacao(true);
-    console.log('[openMedicationInfo] setLoadingObservacao(true) executado');
     
     try {
-      console.log('[openMedicationInfo] Chamando fetchMedicationInfo...');
       const info = await fetchMedicationInfo(medication.trim());
-      console.log('[openMedicationInfo] fetchMedicationInfo concluído');
-      console.log('[openMedicationInfo] Informações recebidas:', info);
-      console.log('[openMedicationInfo] Tipo da resposta:', typeof info);
-      console.log('[openMedicationInfo] Tamanho da resposta:', info?.length);
       
       const finalInfo = info || 'Nenhuma informação encontrada para este medicamento.';
-      console.log('[openMedicationInfo] Informação final que será exibida:', finalInfo);
-      
-      console.log('[openMedicationInfo] Tentando navegar para medicationDetails...');
-      console.log('[openMedicationInfo] router:', router);
-      console.log('[openMedicationInfo] router.navigate:', typeof router.navigate);
       
       // Navegar para a tela de detalhes do medicamento
       await router.navigate({
@@ -341,7 +295,6 @@ export default function AddTreatmentScreen() {
           medicationInfo: 'Informações do medicamento serão carregadas na tela de detalhes.'
         }
       });
-      console.log('[openMedicationInfo] Navegação executada!');
     } catch (error) {
       console.error('[openMedicationInfo] Erro capturado:', error);
       console.error('[openMedicationInfo] Tipo do erro:', typeof error);
@@ -349,49 +302,31 @@ export default function AddTreatmentScreen() {
       console.error('[openMedicationInfo] Stack trace:', error instanceof Error ? error.stack : 'N/A');
       Alert.alert('Erro', 'Não foi possível buscar as informações do medicamento.');
     } finally {
-      console.log('[openMedicationInfo] Finally executado');
       setLoadingObservacao(false);
-      console.log('[openMedicationInfo] setLoadingObservacao(false) executado');
     }
-    console.log('=== FIM DA FUNÇÃO openMedicationInfo ===');
   };
 
 
 
   const fetchInfoMedicamento = async (nome: string) => {
     if (!nome.trim()) {
-      console.log('[AddTreatment] Nome do medicamento vazio, ignorando busca');
       return;
     }
     
-    console.log('[AddTreatment] Iniciando busca de informações para:', nome);
-    console.log('[AddTreatment] Valor atual do notes antes da busca:', notes);
     setLoadingObservacao(true);
     
     try {
-      console.log('[AddTreatment] Chamando fetchMedicationInfo...');
       const medicationInfo = await fetchMedicationInfo(nome);
-      console.log('[AddTreatment] Informações recebidas:', medicationInfo);
-      console.log('[AddTreatment] Tipo da resposta:', typeof medicationInfo);
-      console.log('[AddTreatment] Tamanho da resposta:', medicationInfo?.length);
-      console.log('[AddTreatment] Resposta é string vazia?', medicationInfo === '');
-      console.log('[AddTreatment] Resposta é null/undefined?', medicationInfo == null);
       
       if (medicationInfo && medicationInfo.trim()) {
-        console.log('[AddTreatment] Salvando informações no campo notes');
-        console.log('[AddTreatment] Valor que será salvo:', medicationInfo);
         setNotes(medicationInfo);
-        console.log('[AddTreatment] setNotes chamado com sucesso');
       } else {
-        console.log('[AddTreatment] Nenhuma informação recebida ou resposta vazia');
-        console.log('[AddTreatment] medicationInfo:', medicationInfo);
       }
     } catch (error) {
       console.error('[AddTreatment] Erro ao buscar informações do medicamento:', error);
       console.error('[AddTreatment] Stack trace:', error instanceof Error ? error.stack : 'N/A');
       Alert.alert('Erro', 'Não foi possível buscar as informações do medicamento.');
     } finally {
-      console.log('[AddTreatment] Finalizando busca, removendo loading');
       setLoadingObservacao(false);
     }
   };
@@ -448,46 +383,27 @@ export default function AddTreatmentScreen() {
                   />
                   <TouchableOpacity 
                     onPress={async () => {
-                      console.log('[MedicationInfo] Botão pressionado!');
-                      console.log('[MedicationInfo] medication:', medication);
-                      console.log('[MedicationInfo] medication.trim():', medication.trim());
-                      console.log('[MedicationInfo] medication.trim().length:', medication.trim().length);
                       
                       if (!medication.trim()) {
-                        console.log('[MedicationInfo] Medicamento vazio, não navegando');
                         Alert.alert('Aviso', 'Digite o nome do medicamento primeiro.');
                         return;
                       }
                       
-                      console.log('[MedicationInfo] Medicamento válido, iniciando navegação...');
-                      
                       // Fechar todos os modais antes de navegar
                       if (isMemberModalVisible) {
-                        console.log('[MedicationInfo] Fechando modal de membros...');
                         setMemberModalVisible(false);
                       }
                       if (isDatePickerVisible) {
-                        console.log('[MedicationInfo] Fechando date picker...');
                         setDatePickerVisibility(false);
                       }
                       if (isTimePickerVisible) {
-                        console.log('[MedicationInfo] Fechando time picker...');
                         setTimePickerVisibility(false);
                       }
-                      // if (isUnitPickerVisible) { // Removed
-                      //   console.log('[MedicationInfo] Fechando unit picker...');
-                      //   setUnitPickerVisible(false);
-                      // }
                       
                       // Aguardar um pouco para os modais fecharem
                       await new Promise(resolve => setTimeout(resolve, 100));
                       
-                      console.log('[MedicationInfo] Tentando navegar para Detalhes do Medicamento...');
-                      console.log('[MedicationInfo] router:', router);
-                      console.log('[MedicationInfo] router.navigate:', typeof router.navigate);
-                      
                       try {
-                        console.log('[MedicationInfo] Tentando navegar para +not-found com parâmetros...');
                         router.navigate({
                           pathname: '/+not-found',
                           params: {
@@ -495,7 +411,6 @@ export default function AddTreatmentScreen() {
                             medicationInfo: 'Informações detalhadas do medicamento serão carregadas aqui.'
                           }
                         });
-                        console.log('[MedicationInfo] Navegação executada!');
                       } catch (error) {
                         console.error('[MedicationInfo] Erro na navegação:', error);
                         Alert.alert('Erro', 'Não foi possível abrir os detalhes do medicamento.');
@@ -704,10 +619,7 @@ export default function AddTreatmentScreen() {
                   <TouchableOpacity 
                     style={styles.pickerHalf} 
                     onPress={() => {
-                      console.log('[DateField] Abrindo date picker...');
-                      console.log('[DateField] isDatePickerVisible atual:', isDatePickerVisible);
                       setDatePickerVisibility(true);
-                      console.log('[DateField] setDatePickerVisibility(true) executado');
                     }}
                   >
                     <FontAwesome name="calendar" size={20} color="#8A8A8A" style={styles.inputIcon} />
@@ -716,10 +628,7 @@ export default function AddTreatmentScreen() {
                   <TouchableOpacity 
                     style={styles.pickerHalf} 
                     onPress={() => {
-                      console.log('[TimeField] Abrindo time picker...');
-                      console.log('[TimeField] isTimePickerVisible atual:', isTimePickerVisible);
                       setTimePickerVisibility(true);
-                      console.log('[TimeField] setTimePickerVisibility(true) executado');
                     }}
                   >
                     <FontAwesome name="clock-o" size={20} color="#8A8A8A" style={styles.inputIcon} />
@@ -784,9 +693,7 @@ export default function AddTreatmentScreen() {
                 display="spinner"
                 locale="pt-BR"
                 onChange={(event, selectedDate) => {
-                  console.log('[DateTimePicker] onChange chamado:', event.type);
                   if (event.type === 'set' && selectedDate) {
-                    console.log('[DateTimePicker] Data selecionada:', selectedDate);
                     setStartDate(selectedDate);
                   }
                 }}
@@ -802,7 +709,6 @@ export default function AddTreatmentScreen() {
                 <TouchableOpacity 
                   style={[styles.modalButton, { backgroundColor: '#b081ee' }]}
                   onPress={() => {
-                    console.log('[Modal] Confirmando data:', startDate);
                     setDatePickerVisibility(false);
                   }}
                 >
@@ -833,9 +739,7 @@ export default function AddTreatmentScreen() {
                 display="spinner"
                 locale="pt-BR"
                 onChange={(event, selectedDate) => {
-                  console.log('[DateTimePicker] onChange chamado:', event.type);
                   if (event.type === 'set' && selectedDate) {
-                    console.log('[DateTimePicker] Hora selecionada:', selectedDate);
                     setStartDate(selectedDate);
                   }
                 }}
@@ -851,7 +755,6 @@ export default function AddTreatmentScreen() {
                 <TouchableOpacity 
                   style={[styles.modalButton, { backgroundColor: '#b081ee' }]}
                   onPress={() => {
-                    console.log('[Modal] Confirmando hora:', startDate);
                     setTimePickerVisibility(false);
                   }}
                 >

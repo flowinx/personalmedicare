@@ -1,48 +1,33 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import {
-    Alert,
-    StyleSheet,
-    TouchableOpacity,
-    View
-} from 'react-native';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { fetchMedicationInfo } from '../../services/gemini';
 
 export default function MedicationDetailsScreen() {
-  const router = useRouter();
   const route = useRoute();
   const navigation = useNavigation();
   
-  const [medicationName, setMedicationName] = useState('');
-  const [medicationInfo, setMedicationInfo] = useState('');
+  const [medicationName, setMedicationName] = useState<string>('');
+  const [medicationInfo, setMedicationInfo] = useState<string>('');
   const [loading, setLoading] = useState(false);
-
-  console.log('[MedicationDetails] Componente carregado!');
-  console.log('[MedicationDetails] route.params:', route.params);
-  console.log('[MedicationDetails] navigation:', navigation);
-  console.log('[MedicationDetails] router:', router);
+  const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    console.log('[MedicationDetails] useEffect executado');
     const params = route.params as any;
-    console.log('[MedicationDetails] params recebidos:', params);
     
     if (params?.medicationName) {
-      console.log('[MedicationDetails] Definindo medicationName:', params.medicationName);
       setMedicationName(params.medicationName);
-      if (params?.medicationInfo) {
-        console.log('[MedicationDetails] Definindo medicationInfo:', params.medicationInfo);
-        setMedicationInfo(params.medicationInfo);
-      } else {
-        // Se não recebeu as informações, buscar novamente
-        console.log('[MedicationDetails] Buscando informações novamente...');
-        fetchMedicationDetails(params.medicationName);
-      }
-    } else {
-      console.log('[MedicationDetails] Nenhum medicationName recebido');
+    }
+    
+    if (params?.medicationInfo) {
+      setMedicationInfo(params.medicationInfo);
+    }
+    
+    // Se não recebeu informações via parâmetros, buscar via IA
+    if (params?.medicationName && !params?.medicationInfo) {
+      fetchMedicationDetails(params.medicationName);
     }
   }, [route.params]);
 
@@ -51,19 +36,24 @@ export default function MedicationDetailsScreen() {
   }, [navigation]);
 
   const fetchMedicationDetails = async (name: string) => {
+    if (!name) return;
+    
     setLoading(true);
+    setError('');
+
     try {
       const info = await fetchMedicationInfo(name);
       setMedicationInfo(info);
-    } catch (error) {
-      console.error('Erro ao buscar informações do medicamento:', error);
-      Alert.alert('Erro', 'Não foi possível buscar as informações do medicamento.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao buscar informações');
     } finally {
       setLoading(false);
     }
   };
 
-  console.log('[MedicationDetails] Estados atuais:', { medicationName, medicationInfo, loading });
+  const handleTestButton = () => {
+    // Função de teste
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -89,7 +79,6 @@ export default function MedicationDetailsScreen() {
             marginTop: 20 
           }} 
           onPress={() => {
-            console.log('[MedicationDetails] Botão de teste pressionado!');
             Alert.alert('Teste', 'Tela funcionando!');
           }}
         >

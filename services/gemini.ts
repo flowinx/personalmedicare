@@ -20,8 +20,6 @@ export async function fetchMedicationInfo(medicationName: string): Promise<strin
   }
 
   try {
-    console.log('[Gemini] Buscando informações para:', medicationName);
-    
     const prompt = `Forneça informações sobre o medicamento "${medicationName}" de forma SUPER AMIGÁVEL e SIMPLES, como se estivesse explicando para um amigo:
 
 💊 ${medicationName}
@@ -57,8 +55,6 @@ Responda de forma calorosa e acessível! 🌟`;
         }
       ]
     };
-
-    console.log('[Gemini] Enviando requisição para API...');
     
     const response = await fetch(`${GeminiConfig.BASE_URL}?key=${GeminiConfig.API_KEY}`, {
       method: 'POST',
@@ -68,8 +64,6 @@ Responda de forma calorosa e acessível! 🌟`;
       body: JSON.stringify(requestBody),
     });
 
-    console.log('[Gemini] Status da resposta:', response.status);
-
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[Gemini] Erro na resposta:', errorText);
@@ -77,7 +71,6 @@ Responda de forma calorosa e acessível! 🌟`;
     }
 
     const data: GeminiResponse = await response.json();
-    console.log('[Gemini] Dados recebidos:', JSON.stringify(data, null, 2));
 
     if (data.error) {
       console.error('[Gemini] Erro retornado pela API:', data.error);
@@ -85,12 +78,10 @@ Responda de forma calorosa e acessível! 🌟`;
     }
 
     if (!data.candidates || data.candidates.length === 0) {
-      console.log('[Gemini] Nenhuma resposta recebida da API');
       throw new Error('Nenhuma informação encontrada para este medicamento');
     }
 
     const text = data.candidates[0].content.parts[0].text;
-    console.log('[Gemini] Texto extraído:', text.substring(0, 100) + '...');
 
     return text.trim();
 
@@ -100,7 +91,6 @@ Responda de forma calorosa e acessível! 🌟`;
     
     // Fallback para caso a API não esteja disponível
     const fallbackResponse = `💊 ${medicationName}\n\n📋 Informações não disponíveis no momento. Consulte seu médico ou farmacêutico para orientações sobre este medicamento.`;
-    console.log('[Gemini] Retornando resposta de fallback:', fallbackResponse);
     return fallbackResponse;
   }
 }
@@ -111,8 +101,6 @@ export async function analyzeDocument(text: string): Promise<string> {
   }
 
   try {
-    console.log('[Gemini] Analisando documento...');
-    
     const prompt = `Analise o seguinte texto de um documento médico e forneça um resumo estruturado com as informações mais importantes:
 
 ${text}
@@ -174,8 +162,6 @@ export async function askGeminiChat(userMessage: string): Promise<string> {
   }
 
   try {
-    console.log('[Gemini] Chat - Pergunta enviada:', userMessage);
-    
     const prompt = `Você é um assistente médico virtual amigável e profissional! 🏥
 
 Responda à seguinte pergunta de forma clara e amigável, como se estivesse conversando com um amigo:

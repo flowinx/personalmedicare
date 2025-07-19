@@ -7,72 +7,42 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { fetchMedicationInfo } from '../services/gemini';
 
-export default function NotFoundScreen() {
+export default function MedicationDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const medicationName = params.medicationName as string;
   const medicationInfo = params.medicationInfo as string;
-
+  const [aiMedicationInfo, setAiMedicationInfo] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const [aiMedicationInfo, setAiMedicationInfo] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string>('');
   const [hasSearched, setHasSearched] = useState(false);
 
-  console.log('[MedicationDetails] Tela carregada!');
-  console.log('[MedicationDetails] params:', params);
-  console.log('[MedicationDetails] medicationName:', medicationName);
-  console.log('[MedicationDetails] medicationInfo:', medicationInfo);
-  console.log('[MedicationDetails] aiMedicationInfo atual:', aiMedicationInfo);
-  console.log('[MedicationDetails] loading:', loading);
-  console.log('[MedicationDetails] error:', error);
-
-  // Buscar informações do medicamento via IA
   useEffect(() => {
-    console.log('[MedicationDetails] useEffect executado');
-    console.log('[MedicationDetails] medicationName:', medicationName);
-    console.log('[MedicationDetails] aiMedicationInfo:', aiMedicationInfo);
-    console.log('[MedicationDetails] hasSearched:', hasSearched);
-    
-    if (medicationName && !hasSearched && !loading) {
-      console.log('[MedicationDetails] Iniciando busca de informações...');
+    if (medicationName && !hasSearched) {
       setHasSearched(true);
       fetchMedicationDetails();
-    } else {
-      console.log('[MedicationDetails] Não iniciando busca:', {
-        medicationName: !!medicationName,
-        hasSearched,
-        loading
-      });
     }
-  }, [medicationName, hasSearched, loading]);
+  }, [medicationName, hasSearched]);
 
-  // Monitorar mudanças no aiMedicationInfo
   useEffect(() => {
-    console.log('[MedicationDetails] aiMedicationInfo mudou para:', aiMedicationInfo);
-    console.log('[MedicationDetails] aiMedicationInfo tipo:', typeof aiMedicationInfo);
-    console.log('[MedicationDetails] aiMedicationInfo length:', aiMedicationInfo?.length);
+    if (aiMedicationInfo) {
+      setError('');
+    }
   }, [aiMedicationInfo]);
 
   const fetchMedicationDetails = async () => {
-    if (!medicationName) return;
-    
+    if (!medicationName) {
+      return;
+    }
+
     setLoading(true);
     setError('');
-    
+
     try {
-      console.log('[MedicationDetails] Buscando informações para:', medicationName);
       const info = await fetchMedicationInfo(medicationName);
-      console.log('[MedicationDetails] Informações recebidas:', info);
-      
-      if (info && info.trim()) {
-        setAiMedicationInfo(info);
-        console.log('[MedicationDetails] Informações salvas com sucesso');
-      } else {
-        setError('Nenhuma informação encontrada para este medicamento.');
-      }
-    } catch (error) {
-      console.error('[MedicationDetails] Erro ao buscar informações:', error);
-      setError('Erro ao buscar informações do medicamento. Tente novamente.');
+      setAiMedicationInfo(info);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao buscar informações');
     } finally {
       setLoading(false);
     }
