@@ -1,5 +1,5 @@
 import { FontAwesome } from '@expo/vector-icons';
-import { useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -22,8 +22,14 @@ interface Treatment {
   start_datetime: string;
 }
 
+type NavigationProp = {
+  navigate: (screen: string, params?: any) => void;
+  goBack: () => void;
+};
+
 export default function TreatmentDetailScreen() {
   const router = useRouter();
+  const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
   
   const treatmentId = (route.params as any)?.treatmentId ? String((route.params as any).treatmentId) : undefined;
@@ -36,12 +42,24 @@ export default function TreatmentDetailScreen() {
     startAnimation();
   }, [startAnimation]);
 
+  const handleBack = () => {
+    console.log('[TreatmentDetail] Navegando para Tratamentos...');
+    try {
+      // Navegar diretamente para a tela Tratamentos
+      navigation.navigate('Tratamentos');
+      console.log('[TreatmentDetail] Navegação para Tratamentos executada');
+    } catch (error) {
+      console.error('[TreatmentDetail] Erro ao navegar para Tratamentos:', error);
+      Alert.alert('Erro', 'Não foi possível voltar. Use o botão voltar do dispositivo.');
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       const loadTreatment = async () => {
         if (!treatmentId) {
           Alert.alert('Erro', 'ID do tratamento não fornecido.');
-          router.back();
+          handleBack();
           return;
         }
 
@@ -59,12 +77,12 @@ export default function TreatmentDetailScreen() {
              });
           } else {
             Alert.alert('Erro', 'Tratamento não encontrado.');
-            router.back();
+            handleBack();
           }
         } catch (error) {
           console.error('Erro ao carregar tratamento:', error);
           Alert.alert('Erro', 'Não foi possível carregar os dados do tratamento.');
-          router.back();
+          handleBack();
         } finally {
           setLoading(false);
         }
@@ -240,7 +258,7 @@ export default function TreatmentDetailScreen() {
 
         <TouchableOpacity 
           style={styles.backButton} 
-          onPress={() => router.back()}
+          onPress={handleBack}
           activeOpacity={0.8}
         >
           <FontAwesome name="arrow-left" size={16} color="#fff" style={styles.backButtonIcon} />

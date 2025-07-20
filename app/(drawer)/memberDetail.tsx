@@ -24,8 +24,7 @@ export default function MemberDetailScreen() {
   const router = useRouter();
   const route = useRoute();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  // @ts-ignore
-  const memberId = (route.params?.id ? String(route.params.id) : undefined);
+  const memberId = ((route.params as any)?.id ? String((route.params as any).id) : '');
   const [member, setMember] = useState<Member | null>(null);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
 

@@ -9,6 +9,7 @@ import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
 
 interface TreatmentWithMember extends Treatment {
   member_name: string;
+  member_avatar_uri?: string;
 }
 
 type NavigationProp = {
@@ -43,6 +44,7 @@ export default function AllTreatmentsScreen() {
             return {
               ...treatment,
               member_name: member?.name || 'Membro não encontrado',
+              member_avatar_uri: member?.avatar_uri,
               notes: treatment.notes || ''
             };
           });
@@ -236,10 +238,16 @@ export default function AllTreatmentsScreen() {
                       >
                                               <View style={[styles.cell, { flex: 1 }]}>
                         <View style={styles.memberCell}>
-                          <Image 
-                            source={{ uri: `https://i.pravatar.cc/100?u=${treatment.member_name}` }}
-                            style={styles.memberAvatar}
-                          />
+                          {treatment.member_avatar_uri ? (
+                            <Image 
+                              source={{ uri: treatment.member_avatar_uri }}
+                              style={styles.memberAvatar}
+                            />
+                          ) : (
+                            <View style={styles.memberAvatarPlaceholder}>
+                              <FontAwesome name="user" size={16} color="#b081ee" />
+                            </View>
+                          )}
                         </View>
                       </View>
                       
@@ -562,6 +570,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
+  },
+  memberAvatarPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#e0e0e0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statusBadge: {
     alignItems: 'center',

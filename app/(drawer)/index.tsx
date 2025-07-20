@@ -296,10 +296,10 @@ export default function HomeScreen() {
                     </View>
                     
                     <View style={[styles.cell, { flex: 2, paddingRight: 8 }]}>
-                      <Text style={styles.medicationText} numberOfLines={2}>
-                        <Text style={styles.medicationName}>{item.medication}</Text>
+                      <Text style={[styles.medicationText, item.status === 'tomado' && styles.medicationTextDone]} numberOfLines={2}>
+                        <Text style={[styles.medicationName, item.status === 'tomado' && styles.medicationNameDone]}>{item.medication}</Text>
                         {item.dosage && (
-                          <Text style={styles.dosageText}> - {item.dosage}</Text>
+                          <Text style={[styles.dosageText, item.status === 'tomado' && styles.dosageTextDone]}> - {item.dosage}</Text>
                         )}
                       </Text>
                     </View>
@@ -611,10 +611,20 @@ const styles = StyleSheet.create({
     color: '#2d1155',
     fontWeight: '600',
   },
+  medicationTextDone: {
+    textDecorationLine: 'line-through',
+    color: '#888',
+  },
+  medicationNameDone: {
+    color: '#888',
+  },
   dosageText: {
     fontSize: 12,
     color: '#6c757d',
     fontWeight: '400',
+  },
+  dosageTextDone: {
+    color: '#888',
   },
   cellTime: {
     flex: 1,

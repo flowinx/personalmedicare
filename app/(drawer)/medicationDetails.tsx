@@ -1,6 +1,8 @@
+import { FontAwesome } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { fetchMedicationInfo } from '../../services/gemini';
@@ -8,20 +10,19 @@ import { fetchMedicationInfo } from '../../services/gemini';
 export default function MedicationDetailsScreen() {
   const route = useRoute();
   const navigation = useNavigation();
+  const router = useRouter();
   
   const [medicationName, setMedicationName] = useState<string>('');
+  const [medicationInfo, setMedicationInfo] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
     const params = route.params as any;
     
+    console.log('[MedicationDetails] Parâmetros recebidos:', params);
+    
     if (params?.medicationName) {
       setMedicationName(params.medicationName);
-    }
-    
-
-    
-    // Se não recebeu informações via parâmetros, buscar via IA
-    if (params?.medicationName && !params?.medicationInfo) {
       fetchMedicationDetails(params.medicationName);
     }
   }, [route.params]);
@@ -33,46 +34,76 @@ export default function MedicationDetailsScreen() {
   const fetchMedicationDetails = async (name: string) => {
     if (!name) return;
 
+    setIsLoading(true);
     try {
       const info = await fetchMedicationInfo(name);
+      setMedicationInfo(info);
       console.log('Informações do medicamento:', info);
     } catch (err) {
       console.error('Erro ao buscar informações do medicamento:', err);
+      setMedicationInfo('Não foi possível buscar informações sobre este medicamento no momento. Consulte seu médico ou farmacêutico.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-
+  const handleGoBack = () => {
+    console.log('[MedicationDetails] Função handleGoBack chamada');
+    console.log('[MedicationDetails] Tentando voltar...');
+    console.log('[MedicationDetails] Navigation object:', navigation);
+    console.log('[MedicationDetails] Router object:', router);
+    
+    try {
+      // Tentar usar navigation.navigate para voltar para Novo Tratamento
+      console.log('[MedicationDetails] Usando navigation.navigate para Novo Tratamento');
+      (navigation as any).navigate('Novo Tratamento');
+      console.log('[MedicationDetails] Navegação executada com sucesso');
+    } catch (error) {
+      console.error('[MedicationDetails] Erro ao voltar:', error);
+      // Fallback: tentar router.back()
+      console.log('[MedicationDetails] Usando fallback - router.back()');
+      try {
+        router.back();
+        console.log('[MedicationDetails] Fallback executado com sucesso');
+      } catch (fallbackError) {
+        console.error('[MedicationDetails] Erro no fallback:', fallbackError);
+        Alert.alert('Erro', 'Não foi possível voltar. Use o botão voltar do dispositivo.');
+      }
+    }
+  };
 
   return (
     <ThemedView style={styles.container}>
-      {/* Teste super simples */}
-      <View style={{ 
-        flex: 1, 
-        backgroundColor: 'red', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-        zIndex: 99999 
-      }}>
-        <ThemedText style={{ color: 'white', fontSize: 24, fontWeight: 'bold' }}>
-          TELA FUNCIONANDO!
-        </ThemedText>
-        <ThemedText style={{ color: 'white', fontSize: 16, marginTop: 10 }}>
-          Medicamento: {medicationName || 'Nenhum'}
-        </ThemedText>
+      {/* Header fixo */}
+      <View style={styles.header}>
+        <FontAwesome name="medkit" size={24} color="#b081ee" />
+        <ThemedText style={styles.headerTitle}>{medicationName}</ThemedText>
+      </View>
+      
+      {/* Conteúdo com scroll */}
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        <View style={styles.card}>
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#b081ee" />
+              <ThemedText style={styles.loadingText}>Buscando informações...</ThemedText>
+            </View>
+          ) : (
+            <View style={styles.infoContainer}>
+              <ThemedText style={styles.medicationInfoText}>{medicationInfo}</ThemedText>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+      
+      {/* Botão fixo na parte inferior */}
+      <View style={styles.footer}>
         <TouchableOpacity 
-          style={{ 
-            backgroundColor: 'white', 
-            padding: 15, 
-            borderRadius: 10, 
-            marginTop: 20 
-          }} 
-          onPress={() => {
-            Alert.alert('Teste', 'Tela funcionando!');
-          }}
+          style={styles.backButton}
+          onPress={handleGoBack}
         >
-          <ThemedText style={{ color: 'red', fontWeight: 'bold' }}>
-            CLIQUE AQUI PARA TESTE
-          </ThemedText>
+          <FontAwesome name="arrow-left" size={16} color="#fff" />
+          <ThemedText style={styles.backButtonText}>Voltar</ThemedText>
         </TouchableOpacity>
       </View>
     </ThemedView>
@@ -84,7 +115,24 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     paddingTop: 20,
-    zIndex: 9999, // Forçar ficar no topo
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 15,
+    marginBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginLeft: 10,
+    color: '#2d1155',
+  },
+  scrollContainer: {
+    flex: 1,
+    marginBottom: 80, // Espaço para o botão fixo
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -100,105 +148,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 10,
-    color: '#2d1155',
-  },
-  medicationCard: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-  },
-  medicationNameRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  medicationNameContainer: {
-    flex: 1,
-  },
-  medicationName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2d1155',
-  },
-  medicationSubtitle: {
-    fontSize: 14,
-    color: '#8A8A8A',
-    marginTop: 2,
-  },
-  statusBadge: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 15,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  statusText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  medicationDetailsList: {
-    marginTop: 10,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  detailLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#8A8A8A',
-    marginLeft: 10,
-  },
-  detailValue: {
-    fontSize: 14,
-    color: '#333',
-    marginLeft: 10,
-  },
-  descriptionSection: {
-    marginTop: 15,
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  descriptionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  descriptionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2d1155',
-    marginLeft: 10,
-  },
-  descriptionContent: {
-    paddingHorizontal: 10,
-  },
-  medicationInfoText: {
-    fontSize: 16,
-    color: '#333',
-    lineHeight: 24,
-    textAlign: 'left',
-    paddingVertical: 5,
-  },
   loadingContainer: {
     alignItems: 'center',
     paddingVertical: 20,
@@ -208,10 +157,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#b081ee',
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    marginTop: 20,
-    justifyContent: 'center',
+  infoContainer: {
+    paddingHorizontal: 10,
+  },
+  medicationInfoText: {
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
+    textAlign: 'left',
+    paddingVertical: 5,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    alignItems: 'center',
   },
   backButton: {
     backgroundColor: '#b081ee',
@@ -230,5 +191,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     color: '#fff',
+    marginLeft: 8,
   },
 }); 
