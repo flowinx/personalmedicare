@@ -1,30 +1,13 @@
 import { FontAwesome } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRoute } from '@react-navigation/native';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    FlatList,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View
-} from 'react-native';
-import { ThemedText } from '../../components/ThemedText';
-import { ThemedView } from '../../components/ThemedView';
-import { addTreatment, getTreatmentById, updateTreatment } from '../../db/index';
-import { Member, getAllMembers } from '../../db/members';
-import { useEntranceAnimation } from '../../hooks/useEntranceAnimation';
-
-const frequencyUnitOptions = ['horas', 'dias'];
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { AnimatedCard } from '../../components/AnimatedCard';
+import { addTreatment, getAllMembers, getTreatmentById, updateTreatment } from '../../db/index';
+import { Member } from '../../types';
+import { useEntranceAnimation } from '../../utils/animations';
 
 interface TreatmentFormData {
   member_id: string;
@@ -46,8 +29,9 @@ export default function AddTreatmentScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedTime, setSelectedTime] = useState(new Date());
-  const [showMedicationInfo, setShowMedicationInfo] = useState(false);
-  const [loadingMedicationInfo] = useState(false);
+  const [showMemberPicker, setShowMemberPicker] = useState(false);
+  const [showDurationDropdown, setShowDurationDropdown] = useState(false);
+  const [showFrequencyDropdown, setShowFrequencyDropdown] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState<TreatmentFormData>({
@@ -56,24 +40,30 @@ export default function AddTreatmentScreen() {
     dosage: '',
     frequency_value: 1,
     frequency_unit: 'horas',
-    duration: '',
+    duration: '7 dias',
     notes: '',
     start_datetime: new Date().toISOString(),
     status: 'ativo'
   });
 
+  // Estado local para o valor de frequência como string
+  const [frequencyValueText, setFrequencyValueText] = useState('1');
+
   // Animações
-  const { fadeAnim, slideAnim, startAnimation } = useEntranceAnimation();
+  const { startAnimation } = useEntranceAnimation();
 
   useEffect(() => {
     startAnimation();
   }, [startAnimation]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadMembers();
-    }, [])
-  );
+  // Sincronizar o estado local de frequência com formData
+  useEffect(() => {
+    setFrequencyValueText(formData.frequency_value.toString());
+  }, [formData.frequency_value]);
+
+  useEffect(() => {
+    loadMembers();
+  }, []);
 
   const loadMembers = async () => {
     const allMembers = await getAllMembers();
@@ -89,50 +79,39 @@ export default function AddTreatmentScreen() {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      // Limpa todos os campos ao abrir a tela, exceto o membro selecionado
-      setFormData(prev => ({ ...prev, medication: '', dosage: '', duration: '', notes: '' }));
-      setSelectedDate(new Date());
-      setSelectedTime(new Date());
-    }, [route.params]));
-
   // Carregar dados do tratamento para edição
-  useFocusEffect(
-    useCallback(() => {
-      const loadTreatmentData = async () => {
-        const isEditMode = (route.params as any)?.mode === 'edit';
-        const treatmentId = (route.params as any)?.treatmentId ? String((route.params as any).treatmentId) : undefined;
+  useEffect(() => {
+    const loadTreatmentData = async () => {
+      const isEditMode = (route.params as any)?.mode === 'edit';
+      const treatmentId = (route.params as any)?.treatmentId ? String((route.params as any).treatmentId) : undefined;
 
-        if (isEditMode && treatmentId) {
-          try {
-            const treatment = await getTreatmentById(treatmentId);
-            if (treatment) {
-              
-                             setFormData(prev => ({ 
-                 ...prev, 
-                 member_id: treatment.member_id, 
-                 medication: treatment.medication, 
-                 dosage: treatment.dosage, 
-                 frequency_value: treatment.frequency_value, 
-                 frequency_unit: treatment.frequency_unit, 
-                 duration: treatment.duration, 
-                 notes: treatment.notes || '', 
-                 start_datetime: treatment.start_datetime 
-               }));
-              setSelectedDate(new Date(treatment.start_datetime));
-              setSelectedTime(new Date(treatment.start_datetime));
-            }
-          } catch (error) {
-            console.error('[AddTreatment] Error loading treatment:', error);
-            Alert.alert('Erro', 'Não foi possível carregar os dados do tratamento.');
+      if (isEditMode && treatmentId) {
+        try {
+          const treatment = await getTreatmentById(treatmentId);
+          if (treatment) {
+            setFormData(prev => ({ 
+              ...prev, 
+              member_id: treatment.member_id, 
+              medication: treatment.medication, 
+              dosage: treatment.dosage, 
+              frequency_value: treatment.frequency_value, 
+              frequency_unit: treatment.frequency_unit, 
+              duration: treatment.duration, 
+              notes: treatment.notes || '', 
+              start_datetime: treatment.start_datetime 
+            }));
+            setSelectedDate(new Date(treatment.start_datetime));
+            setSelectedTime(new Date(treatment.start_datetime));
           }
+        } catch (error) {
+          console.error('[AddTreatment] Error loading treatment:', error);
+          Alert.alert('Erro', 'Não foi possível carregar os dados do tratamento.');
         }
-      };
-      
-      loadTreatmentData();
-    }, [route.params])
-  );
+      }
+    };
+    
+    loadTreatmentData();
+  }, [route.params]);
 
   const handleSaveTreatment = async () => {
     if (!formData.member_id || !formData.medication.trim() || !formData.frequency_value) {
@@ -140,7 +119,6 @@ export default function AddTreatmentScreen() {
       return;
     }
 
-    // Se não for uso contínuo, verificar se a duração foi preenchida
     if (!formData.duration.trim()) {
       Alert.alert('Erro', 'Preencha a duração do tratamento.');
       return;
@@ -153,7 +131,6 @@ export default function AddTreatmentScreen() {
       return;
     }
 
-    // Se não for uso contínuo, verificar se a duração é válida
     if (formData.duration !== 'Uso Contínuo') {
       const durVal = parseInt(formData.duration.split(' ')[0], 10);
       if (isNaN(durVal) || durVal <= 0) {
@@ -199,6 +176,7 @@ export default function AddTreatmentScreen() {
   
   const handleSelectMember = (id: string) => {
     setFormData(prev => ({ ...prev, member_id: id }));
+    setShowMemberPicker(false);
   }
 
   const handleConfirmDate = (event: any, date: Date | undefined) => {
@@ -215,342 +193,289 @@ export default function AddTreatmentScreen() {
     }
   };
 
-
-
   return (
-    <>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        
+        {/* Card - Membro */}
+        <AnimatedCard delay={100} style={styles.formCard}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Membro *</Text>
+            <TouchableOpacity 
+              style={styles.inputWrapper}
+              onPress={() => setShowMemberPicker(true)}
+            >
+              <FontAwesome name="user" size={20} color="#8A8A8A" style={styles.inputIcon} />
+              <Text style={styles.input}>
+                {members.find(m => m.id === formData.member_id)?.name || 'Selecione um membro'}
+              </Text>
+              <FontAwesome name="chevron-down" size={16} color="#8A8A8A" />
+            </TouchableOpacity>
+          </View>
+        </AnimatedCard>
+
+        {/* Card - Medicamento */}
+        <AnimatedCard delay={200} style={styles.formCard}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Nome do Medicamento *</Text>
+            <View style={styles.inputWrapper}>
+              <FontAwesome name="medkit" size={20} color="#8A8A8A" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: Paracetamol, Ibuprofeno..."
+                placeholderTextColor="#8A8A8A"
+                value={formData.medication} 
+                onChangeText={text => setFormData(prev => ({ ...prev, medication: text }))} 
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Dosagem</Text>
+            <View style={styles.inputWrapper}>
+              <FontAwesome name="medkit" size={20} color="#8A8A8A" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: 500mg, 1 comprimido..."
+                placeholderTextColor="#8A8A8A"
+                value={formData.dosage} 
+                onChangeText={text => setFormData(prev => ({ ...prev, dosage: text }))} 
+              />
+            </View>
+          </View>
+        </AnimatedCard>
+
+        {/* Card - Frequência */}
+        <AnimatedCard delay={300} style={styles.formCard}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Frequência (a cada) *</Text>
+            <View style={styles.compositeInput}>
+              <View style={styles.compositeInputWrapper}>
+                <FontAwesome name="clock-o" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="1"
+                  placeholderTextColor="#8A8A8A"
+                  keyboardType="numeric"
+                  value={frequencyValueText}
+                  onChangeText={text => {
+                    setFrequencyValueText(text);
+                    const numValue = parseInt(text, 10);
+                    if (!isNaN(numValue) && numValue > 0) {
+                      setFormData(prev => ({ ...prev, frequency_value: numValue }));
+                    } else if (text === '') {
+                      setFormData(prev => ({ ...prev, frequency_value: 0 }));
+                    }
+                  }}
+                />
+              </View>
+              <TouchableOpacity 
+                style={styles.unitButton}
+                onPress={() => setShowFrequencyDropdown(true)}
+              >
+                <Text style={styles.unitText}>{formData.frequency_unit}</Text>
+                <FontAwesome name="chevron-down" size={14} color="#8A8A8A" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </AnimatedCard>
+
+        {/* Card - Duração */}
+        <AnimatedCard delay={400} style={styles.formCard}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Duração *</Text>
+            <View style={styles.compositeInput}>
+              <View style={styles.compositeInputWrapper}>
+                <FontAwesome name="calendar" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="7"
+                  placeholderTextColor="#8A8A8A"
+                  keyboardType="numeric"
+                  value={formData.duration && formData.duration.includes(' ') ? formData.duration.split(' ')[0] : ''} 
+                  onChangeText={text => {
+                    const unit = formData.duration && formData.duration.includes(' ') ? formData.duration.split(' ')[1] : 'dias';
+                    setFormData(prev => ({ ...prev, duration: text ? `${text} ${unit}` : '' }));
+                  }} 
+                />
+              </View>
+              <TouchableOpacity 
+                style={styles.unitButton}
+                onPress={() => setShowDurationDropdown(true)}
+              >
+                <Text style={styles.unitText}>
+                  {formData.duration && formData.duration.includes(' ') ? formData.duration.split(' ')[1] : 'dias'}
+                </Text>
+                <FontAwesome name="chevron-down" size={14} color="#8A8A8A" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </AnimatedCard>
+
+        {/* Card - Início do Tratamento */}
+        <AnimatedCard delay={500} style={styles.formCard}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Início do Tratamento</Text>
+            <View style={styles.dateTimeContainer}>
+              <TouchableOpacity 
+                style={styles.dateTimeButton}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <FontAwesome name="calendar" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                <Text style={styles.input}>
+                  {selectedDate.toLocaleDateString('pt-BR')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.dateTimeButton}
+                onPress={() => setShowTimePicker(true)}
+              >
+                <FontAwesome name="clock-o" size={20} color="#8A8A8A" style={styles.inputIcon} />
+                <Text style={styles.input}>
+                  {selectedTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </AnimatedCard>
+
+        {/* Card - Observações */}
+        <AnimatedCard delay={600} style={styles.formCard}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Observações</Text>
+            <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+              <FontAwesome name="sticky-note" size={20} color="#8A8A8A" style={styles.textAreaIcon} />
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Ex: Tomar com um copo de água..." 
+                placeholderTextColor="#8A8A8A"
+                multiline 
+                numberOfLines={3}
+                textAlignVertical="top"
+                value={formData.notes} 
+                onChangeText={text => setFormData(prev => ({ ...prev, notes: text }))} 
+              />
+            </View>
+          </View>
+        </AnimatedCard>
+
+        {/* Botões */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.cancelButton} onPress={() => router.back()}>
+            <Text style={styles.cancelButtonText}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.saveButton} onPress={handleSaveTreatment}>
+            <Text style={styles.saveButtonText}>Salvar</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {/* Modal - Seleção de Membro */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showMemberPicker}
+        onRequestClose={() => setShowMemberPicker(false)}
       >
-        <ThemedView style={styles.container}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-            
-            {/* Card - Informações do Membro */}
-            <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-              <View style={styles.cardHeader}>
-                <FontAwesome name="user" size={20} color="#b081ee" />
-                <ThemedText style={styles.cardTitle}>Membro da Família</ThemedText>
-              </View>
-              <View style={styles.inputContainer}>
-                <ThemedText style={styles.label}>Para qual membro da família?</ThemedText>
-                <TouchableOpacity style={styles.picker} onPress={() => !formData.member_id && setShowMedicationInfo(true)} disabled={!!formData.member_id}>
-                  <FontAwesome name="user" size={20} color="#8A8A8A" style={styles.inputIcon} />
-                  <ThemedText lightColor="#2d1155" darkColor="#2d1155" style={styles.pickerText}>
-                    {members.find(m => m.id === formData.member_id)?.name || 'Selecione...'}
-                  </ThemedText>
-                  {!!formData.member_id && (
-                    <FontAwesome name="lock" size={16} color="#b081ee" style={{ marginLeft: 8 }} />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-
-            {/* Card - Informações do Medicamento */}
-            <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-              <View style={styles.cardHeader}>
-                <FontAwesome name="medkit" size={20} color="#b081ee" />
-                <ThemedText style={styles.cardTitle}>Medicamento</ThemedText>
-              </View>
-              
-              <View style={styles.inputContainer}>
-                <ThemedText style={styles.label}>Nome do Medicamento</ThemedText>
-                <View style={styles.inputWrapper}>
-                  <FontAwesome name="medkit" size={20} color="#8A8A8A" style={styles.inputIcon} />
-                  <TextInput 
-                    style={styles.input} 
-                    placeholder="Ex: Paracetamol" 
-                    placeholderTextColor="#8A8A8A"
-                    value={formData.medication} 
-                    onChangeText={text => setFormData(prev => ({ ...prev, medication: text }))} 
-                  />
-                  <TouchableOpacity 
-                    onPress={async () => {
-                      
-                      if (!formData.medication.trim()) {
-                        Alert.alert('Aviso', 'Digite o nome do medicamento primeiro.');
-                        return;
-                      }
-                      
-                      // Fechar todos os modais antes de navegar
-                      if (showMedicationInfo) {
-                        setShowMedicationInfo(false);
-                      }
-                      
-                      // Aguardar um pouco para os modais fecharem
-                      await new Promise(resolve => setTimeout(resolve, 100));
-                      
-                      try {
-                        router.navigate({
-                          pathname: '/+not-found',
-                          params: {
-                            medicationName: formData.medication.trim(),
-                            medicationInfo: 'Informações detalhadas do medicamento serão carregadas aqui.'
-                          }
-                        });
-                      } catch (error) {
-                        console.error('[MedicationInfo] Erro na navegação:', error);
-                        Alert.alert('Erro', 'Não foi possível abrir os detalhes do medicamento.');
-                      }
-                    }}
-                    disabled={!formData.medication.trim() || loadingMedicationInfo}
-                    style={[
-                      styles.infoButton,
-                      { opacity: formData.medication.trim() && !loadingMedicationInfo ? 1 : 0.3 }
-                    ]}
-                  >
-                    <FontAwesome 
-                      name="info-circle" 
-                      size={20} 
-                      color={formData.medication.trim() && !loadingMedicationInfo ? "#b081ee" : "#8A8A8A"} 
-                    />
-                  </TouchableOpacity>
-                  {loadingMedicationInfo && (
-                    <View style={styles.loadingContainer}>
-                      <ActivityIndicator size="small" color="#b081ee" />
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              <View style={styles.inputContainer}>
-                <ThemedText style={styles.label}>Dosagem</ThemedText>
-                <View style={styles.inputWrapper}>
-                  <FontAwesome name="balance-scale" size={20} color="#8A8A8A" style={styles.inputIcon} />
-                  <TextInput 
-                    style={styles.input} 
-                    placeholder="Ex: 1 comprimido de 500mg" 
-                    placeholderTextColor="#8A8A8A"
-                    value={formData.dosage} 
-                    onChangeText={text => setFormData(prev => ({ ...prev, dosage: text }))} 
-                  />
-                </View>
-              </View>
-            </Animated.View>
-
-            {/* Card - Duração e Frequência */}
-            <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-              <View style={styles.cardHeader}>
-                <FontAwesome name="clock-o" size={20} color="#b081ee" />
-                <ThemedText style={styles.cardTitle}>Duração e Frequência</ThemedText>
-              </View>
-
-              <View style={styles.inputContainer}>
-                <View style={styles.toggleContainer}>
-                  <ThemedText style={styles.label}>Tipo de Tratamento</ThemedText>
-                  <View style={styles.toggleRow}>
-                    <TouchableOpacity 
-                      style={[styles.toggleOption, !formData.duration.includes('Uso Contínuo') && styles.toggleOptionActive]} 
-                      onPress={() => setFormData(prev => ({ ...prev, duration: 'Uso Contínuo' }))}
-                    >
-                      <FontAwesome name="calendar" size={16} color={!formData.duration.includes('Uso Contínuo') ? "#fff" : "#8A8A8A"} />
-                      <ThemedText style={[styles.toggleText, !formData.duration.includes('Uso Contínuo') && styles.toggleTextActive]}>
-                        Duração Específica
-                      </ThemedText>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.toggleOption, formData.duration.includes('Uso Contínuo') && styles.toggleOptionActive]} 
-                      onPress={() => setFormData(prev => ({ ...prev, duration: 'Uso Contínuo' }))}
-                    >
-                      <FontAwesome name="refresh" size={16} color={formData.duration.includes('Uso Contínuo') ? "#fff" : "#8A8A8A"} />
-                      <ThemedText style={[styles.toggleText, formData.duration.includes('Uso Contínuo') && styles.toggleTextActive]}>
-                        Uso Contínuo
-                      </ThemedText>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-
-              {!formData.duration.includes('Uso Contínuo') && (
-                <View style={styles.inputContainer}>
-                  <ThemedText style={styles.label}>Duração do Tratamento</ThemedText>
-                  <View style={styles.compositeInput}>
-                    <View style={styles.inputWrapper}>
-                      <FontAwesome 
-                        name={formData.duration.includes('dias') ? 'calendar' : formData.duration.includes('semanas') ? 'calendar-o' : 'calendar-check-o'} 
-                        size={20} 
-                        color="#8A8A8A" 
-                        style={styles.inputIcon} 
-                      />
-                      <TextInput 
-                        style={[styles.input, styles.compositeInputText]} 
-                        placeholder="Ex: 7" 
-                        placeholderTextColor="#8A8A8A"
-                        value={formData.duration.split(' ')[0]} 
-                        onChangeText={text => setFormData(prev => ({ ...prev, duration: `${text} ${formData.duration.split(' ')[1]}` }))} 
-                        keyboardType="numeric" 
-                      />
-                    </View>
-                    <View style={styles.unitPicker}>
-                      <View style={styles.dropdownContainer}>
-                        <TouchableOpacity 
-                          style={styles.dropdownButton}
-                          onPress={() => {
-                            const currentUnit = formData.duration.split(' ')[1];
-                            const newUnit = currentUnit === 'dias' ? 'semanas' : currentUnit === 'semanas' ? 'meses' : 'dias';
-                            setFormData(prev => ({ ...prev, duration: `${formData.duration.split(' ')[0]} ${newUnit}` }));
-                          }}
-                        >
-                          <View style={styles.dropdownButtonContent}>
-                            <FontAwesome 
-                              name={formData.duration.includes('dias') ? 'calendar' : formData.duration.includes('semanas') ? 'calendar-o' : 'calendar-check-o'} 
-                              size={16} 
-                              color="#8A8A8A" 
-                              style={styles.dropdownIcon}
-                            />
-                            <ThemedText style={styles.dropdownButtonText}>{formData.duration.split(' ')[1]}</ThemedText>
-                          </View>
-                          <FontAwesome 
-                            name="chevron-down" 
-                            size={16} 
-                            color="#8A8A8A" 
-                          />
-                        </TouchableOpacity>
-                        
-
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              )}
-
-              <View style={styles.inputContainer}>
-                <ThemedText style={styles.label}>Frequência (a cada)</ThemedText>
-                <View style={styles.compositeInput}>
-                  <View style={styles.inputWrapper}>
-                    <FontAwesome 
-                      name={formData.frequency_unit === 'horas' ? 'clock-o' : 'calendar'} 
-                      size={20} 
-                      color="#8A8A8A" 
-                      style={styles.inputIcon} 
-                    />
-                    <TextInput 
-                      style={[styles.input, styles.compositeInputText]} 
-                      placeholder="Ex: 8" 
-                      placeholderTextColor="#8A8A8A"
-                      value={formData.frequency_value.toString()} 
-                      onChangeText={text => setFormData(prev => ({ ...prev, frequency_value: parseInt(text, 10) || 1 }))} 
-                      keyboardType="numeric" 
-                    />
-                  </View>
-                  <View style={styles.unitPicker}>
-                    <View style={styles.dropdownContainer}>
-                      <TouchableOpacity 
-                        style={styles.dropdownButton}
-                        onPress={() => {
-                          const currentUnit = formData.frequency_unit;
-                          const newUnit = currentUnit === 'horas' ? 'dias' : 'horas';
-                          setFormData(prev => ({ ...prev, frequency_unit: newUnit }));
-                        }}
-                      >
-                        <View style={styles.dropdownButtonContent}>
-                          <FontAwesome 
-                            name={formData.frequency_unit === 'horas' ? 'clock-o' : 'calendar'} 
-                            size={16} 
-                            color="#8A8A8A" 
-                            style={styles.dropdownIcon}
-                          />
-                          <ThemedText style={styles.dropdownButtonText}>{formData.frequency_unit}</ThemedText>
-                        </View>
-                        <FontAwesome 
-                          name="chevron-down" 
-                          size={16} 
-                          color="#8A8A8A" 
-                        />
-                      </TouchableOpacity>
-                      
-                      {frequencyUnitOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option}
-                          style={[
-                            styles.dropdownModalItem,
-                            formData.frequency_unit === option && styles.dropdownItemSelected
-                          ]}
-                          onPress={() => {
-                            setFormData(prev => ({ ...prev, frequency_unit: option }));
-                          }}
-                        >
-                          <ThemedText style={[
-                            styles.dropdownItemText,
-                            formData.frequency_unit === option && styles.dropdownItemTextSelected
-                          ]}>
-                            {option}
-                          </ThemedText>
-                          {formData.frequency_unit === option && (
-                            <FontAwesome name="check" size={16} color="#b081ee" />
-                          )}
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </Animated.View>
-
-            {/* Card - Início do Tratamento */}
-            <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-              <View style={styles.cardHeader}>
-                <FontAwesome name="calendar" size={20} color="#b081ee" />
-                <ThemedText style={styles.cardTitle}>Início do Tratamento</ThemedText>
-              </View>
-              
-              <View style={styles.inputContainer}>
-                <View style={styles.dateTimeContainer}>
-                  <TouchableOpacity 
-                    style={styles.pickerHalf} 
-                    onPress={() => setShowDatePicker(true)}
-                  >
-                    <FontAwesome name="calendar" size={20} color="#8A8A8A" style={styles.inputIcon} />
-                    <ThemedText lightColor="#2d1155" darkColor="#2d1155">{selectedDate.toLocaleDateString()}</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.pickerHalf} 
-                    onPress={() => setShowTimePicker(true)}
-                  >
-                    <FontAwesome name="clock-o" size={20} color="#8A8A8A" style={styles.inputIcon} />
-                    <ThemedText lightColor="#2d1155" darkColor="#2d1155">{selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</ThemedText>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Animated.View>
-
-            {/* Card - Observações */}
-            <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-              <View style={styles.cardHeader}>
-                <FontAwesome name="sticky-note" size={20} color="#b081ee" />
-                <ThemedText style={styles.cardTitle}>Observações</ThemedText>
-              </View>
-              
-              <View style={styles.inputContainer}>
-                <View style={styles.inputWrapper}>
-                  <FontAwesome name="sticky-note" size={20} color="#8A8A8A" style={styles.inputIcon} />
-                  <TextInput 
-                    style={[styles.input, { height: 80, textAlignVertical: 'top' }]} 
-                    placeholder="Ex: Tomar com um copo de água..." 
-                    placeholderTextColor="#8A8A8A"
-                    multiline 
-                    value={formData.notes} 
-                    onChangeText={text => setFormData(prev => ({ ...prev, notes: text }))} 
-                  />
-                </View>
-              </View>
-            </Animated.View>
-
-            {/* Buttons */}
-            <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim, transform: [{ scale: slideAnim }] }]}>
-              <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
-                <ThemedText style={styles.secondaryButtonText} lightColor="#b081ee" darkColor="#b081ee">Cancelar</ThemedText>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowMemberPicker(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Selecionar Membro</Text>
+            {members.map((member) => (
+              <TouchableOpacity
+                key={member.id}
+                style={styles.modalItem}
+                onPress={() => handleSelectMember(member.id || '')}
+              >
+                <Text style={styles.modalItemText}>{member.name}</Text>
+                {formData.member_id === member.id && <FontAwesome name="check" size={16} color="#b081ee" />}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.primaryButton} onPress={handleSaveTreatment}>
-                <ThemedText style={styles.primaryButtonText} lightColor="#fff" darkColor="#fff">Salvar</ThemedText>
-              </TouchableOpacity>
-            </Animated.View>
-          </ScrollView>
-        </ThemedView>
-      </KeyboardAvoidingView>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
 
-      {/* DateTimePicker com modal nativo */}
+      {/* Modal - Unidade de Frequência */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showFrequencyDropdown}
+        onRequestClose={() => setShowFrequencyDropdown(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowFrequencyDropdown(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Selecionar Unidade</Text>
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                setFormData(prev => ({ ...prev, frequency_unit: 'horas' }));
+                setShowFrequencyDropdown(false);
+              }}
+            >
+              <Text style={styles.modalItemText}>horas</Text>
+              {formData.frequency_unit === 'horas' && <FontAwesome name="check" size={16} color="#b081ee" />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                setFormData(prev => ({ ...prev, frequency_unit: 'dias' }));
+                setShowFrequencyDropdown(false);
+              }}
+            >
+              <Text style={styles.modalItemText}>dias</Text>
+              {formData.frequency_unit === 'dias' && <FontAwesome name="check" size={16} color="#b081ee" />}
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Modal - Unidade de Duração */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showDurationDropdown}
+        onRequestClose={() => setShowDurationDropdown(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowDurationDropdown(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Selecionar Unidade</Text>
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                const currentValue = formData.duration && formData.duration.includes(' ') ? formData.duration.split(' ')[0] : '7';
+                setFormData(prev => ({ ...prev, duration: `${currentValue} dias` }));
+                setShowDurationDropdown(false);
+              }}
+            >
+              <Text style={styles.modalItemText}>dias</Text>
+              {formData.duration.includes('dias') && <FontAwesome name="check" size={16} color="#b081ee" />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                const currentValue = formData.duration && formData.duration.includes(' ') ? formData.duration.split(' ')[0] : '7';
+                setFormData(prev => ({ ...prev, duration: `${currentValue} semanas` }));
+                setShowDurationDropdown(false);
+              }}
+            >
+              <Text style={styles.modalItemText}>semanas</Text>
+              {formData.duration.includes('semanas') && <FontAwesome name="check" size={16} color="#b081ee" />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                const currentValue = formData.duration && formData.duration.includes(' ') ? formData.duration.split(' ')[0] : '7';
+                setFormData(prev => ({ ...prev, duration: `${currentValue} meses` }));
+                setShowDurationDropdown(false);
+              }}
+            >
+              <Text style={styles.modalItemText}>meses</Text>
+              {formData.duration.includes('meses') && <FontAwesome name="check" size={16} color="#b081ee" />}
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* DateTimePicker */}
       {showDatePicker && (
         <Modal
           animationType="slide"
@@ -558,34 +483,33 @@ export default function AddTreatmentScreen() {
           visible={showDatePicker}
           onRequestClose={() => setShowDatePicker(false)}
         >
-          <Pressable 
-            style={styles.modalOverlay} 
-            onPress={() => setShowDatePicker(false)}
-          >
+          <Pressable style={styles.modalOverlay} onPress={() => setShowDatePicker(false)}>
             <View style={styles.modalContent}>
-              <ThemedText style={styles.modalTitle}>Selecionar Data</ThemedText>
-              <DateTimePicker
-                value={selectedDate}
-                mode="date"
-                display="spinner"
-                locale="pt-BR"
-                onChange={handleConfirmDate}
-                style={{ width: '100%' }}
-              />
+              <Text style={styles.modalTitle}>Selecionar Data</Text>
+              <View style={styles.dateTimePickerContainer}>
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  locale="pt-BR"
+                  onChange={handleConfirmDate}
+                  style={Platform.OS === 'ios' ? { width: '100%', height: 200 } : { width: '100%' }}
+                  textColor="#2d1155"
+                  accentColor="#b081ee"
+                />
+              </View>
               <View style={styles.modalButtonContainer}>
                 <TouchableOpacity 
-                  style={styles.modalButton}
+                  style={[styles.modalButton, { backgroundColor: '#E0E0E0' }]}
                   onPress={() => setShowDatePicker(false)}
                 >
-                  <ThemedText style={styles.modalButtonText}>Cancelar</ThemedText>
+                  <Text style={[styles.modalButtonText, { color: '#666666' }]}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={[styles.modalButton, { backgroundColor: '#b081ee' }]}
-                  onPress={() => {
-                    setShowDatePicker(false);
-                  }}
+                  onPress={() => setShowDatePicker(false)}
                 >
-                  <ThemedText style={[styles.modalButtonText, { color: 'white' }]}>Confirmar</ThemedText>
+                  <Text style={[styles.modalButtonText, { color: 'white' }]}>Confirmar</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -600,242 +524,123 @@ export default function AddTreatmentScreen() {
           visible={showTimePicker}
           onRequestClose={() => setShowTimePicker(false)}
         >
-          <Pressable 
-            style={styles.modalOverlay} 
-            onPress={() => setShowTimePicker(false)}
-          >
+          <Pressable style={styles.modalOverlay} onPress={() => setShowTimePicker(false)}>
             <View style={styles.modalContent}>
-              <ThemedText style={styles.modalTitle}>Selecionar Hora</ThemedText>
-              <DateTimePicker
-                value={selectedTime}
-                mode="time"
-                display="spinner"
-                locale="pt-BR"
-                onChange={handleConfirmTime}
-                style={{ width: '100%' }}
-              />
+              <Text style={styles.modalTitle}>Selecionar Hora</Text>
+              <View style={styles.dateTimePickerContainer}>
+                <DateTimePicker
+                  value={selectedTime}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  locale="pt-BR"
+                  onChange={handleConfirmTime}
+                  style={Platform.OS === 'ios' ? { width: '100%', height: 200 } : { width: '100%' }}
+                  textColor="#2d1155"
+                  accentColor="#b081ee"
+                />
+              </View>
               <View style={styles.modalButtonContainer}>
                 <TouchableOpacity 
-                  style={styles.modalButton}
+                  style={[styles.modalButton, { backgroundColor: '#E0E0E0' }]}
                   onPress={() => setShowTimePicker(false)}
                 >
-                  <ThemedText style={styles.modalButtonText}>Cancelar</ThemedText>
+                  <Text style={[styles.modalButtonText, { color: '#666666' }]}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={[styles.modalButton, { backgroundColor: '#b081ee' }]}
-                  onPress={() => {
-                    setShowTimePicker(false);
-                  }}
+                  onPress={() => setShowTimePicker(false)}
                 >
-                  <ThemedText style={[styles.modalButtonText, { color: 'white' }]}>Confirmar</ThemedText>
+                  <Text style={[styles.modalButtonText, { color: 'white' }]}>Confirmar</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </Pressable>
         </Modal>
       )}
-
-      {/* Modal do Dropdown */}
-      {/* Removed as per new_code, as dropdowns are now integrated into the main input */}
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={showMedicationInfo}
-        onRequestClose={() => setShowMedicationInfo(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowMedicationInfo(false)}>
-          <View style={styles.modalContent}>
-            <ThemedText style={styles.modalTitle} lightColor="#2d1155" darkColor="#2d1155">Selecione o Membro</ThemedText>
-            <FlatList
-              data={members}
-              keyExtractor={item => item.id?.toString() || ''}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.modalItem}
-                  onPress={() => item.id && handleSelectMember(item.id)}
-                >
-                  <ThemedText style={styles.modalItemText} lightColor="#2d1155" darkColor="#2d1155">{item.name}</ThemedText>
-                  {formData.member_id === item.id && <FontAwesome name="check" size={16} color="#b081ee" />}
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </Pressable>
-      </Modal>
-
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    paddingTop: 20,
+    backgroundColor: '#F5F5F5',
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    padding: 20,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+  scrollContainer: {
+    flex: 1,
+    padding: 16,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 10,
-    color: '#2d1155',
+  formCard: {
+    marginBottom: 25,
+    padding: 0,
   },
   inputContainer: {
-    width: '100%',
-    marginBottom: 15,
+    marginBottom: 25,
+    paddingHorizontal: 20,
   },
   label: {
     marginBottom: 8,
     fontSize: 16,
-    fontWeight: '500',
-    color: '#2d1155',
+    fontWeight: '600',
+    color: '#333',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  compositeInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    flex: 0.7,
   },
   input: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
     fontSize: 16,
     color: '#333',
   },
-  picker: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    marginTop: 20,
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  primaryButton: {
-      backgroundColor: '#b081ee',
-      borderRadius: 12,
-      paddingVertical: 16,
-      paddingHorizontal: 20,
-      alignItems: 'center',
-      flex: 1,
-      marginRight: 8,
-      shadowColor: '#b081ee',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 4,
-  },
-  primaryButtonText: {
-      fontWeight: 'bold',
-      fontSize: 16,
-  },
-  secondaryButton: {
-      backgroundColor: '#FFFFFF',
-      borderRadius: 12,
-      paddingVertical: 16,
-      paddingHorizontal: 20,
-      alignItems: 'center',
-      flex: 1,
-      marginLeft: 8,
-      borderWidth: 1,
-      borderColor: '#b081ee',
-      shadowColor: '#b081ee',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 2,
-  },
-  secondaryButtonText: {
-      fontWeight: 'bold',
-      fontSize: 16,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    padding: 20,
-    maxHeight: '50%',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  memberItem: {
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  memberItemText: {
-    fontSize: 16,
+  inputIcon: {
+    marginRight: 12,
   },
   compositeInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%', // Ocupa toda a largura do input
-    alignSelf: 'stretch',
-    backgroundColor: 'transparent',
+    gap: 10,
   },
-  compositeInputText: {
-    flex: 7, // 70%
-    borderWidth: 0,
-    minWidth: 0,
-  },
-  unitPicker: {
-    flex: 3, // 30%
-    paddingHorizontal: 15,
-    height: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  unitPickerButton: {
+  unitButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 10,
     backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    gap: 8,
+    minWidth: 80,
+    maxWidth: 100,
+    flex: 0.3,
   },
   unitText: {
     fontSize: 14,
@@ -845,24 +650,108 @@ const styles = StyleSheet.create({
   dateTimeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 10,
   },
-  pickerHalf: {
+  dateTimeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 15,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E9ECEF',
     flex: 1,
-    marginHorizontal: 5,
+  },
+  textAreaWrapper: {
+    alignItems: 'flex-start',
+    minHeight: 100,
+  },
+  textArea: {
+    minHeight: 80,
+    paddingTop: 8,
+    textAlignVertical: 'top',
+  },
+  textAreaIcon: {
+    marginRight: 12,
+    marginTop: 8,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    marginTop: 20,
+    marginBottom: 40,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  cancelButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#b081ee',
+    shadowColor: '#b081ee',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  saveButton: {
+    backgroundColor: '#b081ee',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    flex: 1,
+    marginLeft: 8,
+    shadowColor: '#b081ee',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  cancelButtonText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#b081ee',
+  },
+  saveButtonText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#fff',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    margin: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    minHeight: 300,
+    width: '90%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
   },
   modalItem: {
     paddingVertical: 15,
@@ -871,96 +760,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  modalItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  modalItemIcon: {
-    marginRight: 12,
+    width: '100%',
   },
   modalItemText: {
     fontSize: 16,
     color: '#2d1155',
   },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    flex: 1,
-    minWidth: 100, // Largura mínima para o campo de texto
-  },
-  inputIcon: {
-    marginLeft: 15,
-    marginRight: 10,
-  },
-  pickerText: {
-    flex: 1,
-  },
-  toggleContainer: {
-    marginBottom: 15,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    backgroundColor: '#F0F0F0',
-    borderRadius: 20,
-    padding: 2,
-  },
-  toggleOption: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 18,
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  toggleOptionActive: {
-    backgroundColor: '#b081ee',
-  },
-  toggleText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#8A8A8A',
-  },
-  toggleTextActive: {
-    color: '#fff',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-    paddingHorizontal: 15,
-  },
-  loadingText: {
-    marginLeft: 10,
-    fontSize: 14,
-    color: '#b081ee',
-  },
-  notesPreview: {
-    fontSize: 16,
-    color: '#8A8A8A',
-    paddingVertical: 12,
-    paddingHorizontal: 0,
-    lineHeight: 20,
-  },
-  closeButton: {
-    padding: 5,
-  },
-  infoButton: {
-    position: 'absolute',
-    right: 10,
-    top: '50%',
-    transform: [{ translateY: -10 }],
-  },
   modalButtonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     marginTop: 20,
+    width: '100%',
+    gap: 15,
   },
   modalButton: {
     backgroundColor: '#b081ee',
@@ -968,128 +779,18 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 25,
     alignItems: 'center',
+    flex: 1,
   },
   modalButtonText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
   },
-  pickerStyle: {
-    height: 50,
+  dateTimePickerContainer: {
     width: '100%',
-    color: '#2d1155',
-  },
-  dropdownContainer: {
-    position: 'relative',
-    width: '100%',
-  },
-  dropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  dropdownButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dropdownIcon: {
-    // marginRight: 8, // Removido pois o gap do container já faz o espaçamento
-  },
-  dropdownButtonText: {
-    fontSize: 16,
-    color: '#2d1155',
-  },
-  dropdownList: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    marginTop: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    maxHeight: 200,
+    padding: 10,
+    marginVertical: 10,
   },
-  dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  dropdownItemLast: {
-    borderBottomWidth: 0,
-  },
-  dropdownItemSelected: {
-    backgroundColor: '#F0F0F0',
-  },
-  dropdownItemText: {
-    fontSize: 16,
-    color: '#2d1155',
-  },
-  dropdownItemTextSelected: {
-    fontWeight: '600',
-    color: '#b081ee',
-  },
-  dropdownModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dropdownModalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    maxHeight: 200,
-  },
-  dropdownModalItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  dropdownModalItemLast: {
-    borderBottomWidth: 0,
-  },
-  dropdownModalItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dropdownModalItemIcon: {
-    // marginRight: 8, // Removido pois o gap do container já faz o espaçamento
-  },
-  dropdownModalItemText: {
-    fontSize: 16,
-    color: '#2d1155',
-  },
-
 }); 
