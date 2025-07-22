@@ -97,7 +97,7 @@ export interface Document {
 export async function signUpWithEmail(email: string, password: string, name: string): Promise<User> {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, password);
-    
+
     // Criar perfil do usuário
     const profile: UserProfile = {
       id: result.user.uid,
@@ -108,9 +108,9 @@ export async function signUpWithEmail(email: string, password: string, name: str
       createdAt: new Date(),
       updatedAt: new Date()
     };
-    
+
     await setDoc(doc(db, 'profiles', result.user.uid), profile);
-    
+
     return result.user;
   } catch (error) {
     console.error('Erro ao criar conta:', error);
@@ -141,7 +141,7 @@ export async function signOutUser(): Promise<void> {
 export async function getCurrentUser(): Promise<User | null> {
   return new Promise((resolve) => {
     console.log('[Firebase] getCurrentUser called');
-    
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log('[Firebase] Auth state changed:', user ? 'user found' : 'no user');
       unsubscribe();
@@ -196,7 +196,7 @@ export async function addMember(member: Omit<Member, 'id' | 'userId' | 'createdA
       createdAt: new Date(),
       updatedAt: new Date()
     };
-    
+
     await setDoc(memberRef, newMember);
     console.log('Membro adicionado com sucesso:', newMember);
     return memberRef.id;
@@ -212,7 +212,7 @@ export async function getAllMembers(): Promise<Member[]> {
     const membersRef = collection(db, 'members');
     const q = query(membersRef, where('userId', '==', userId), orderBy('name'));
     const querySnapshot = await getDocs(q);
-    
+
     const members: Member[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
@@ -222,7 +222,7 @@ export async function getAllMembers(): Promise<Member[]> {
         updatedAt: data.updatedAt.toDate()
       } as Member);
     });
-    
+
     return members;
   } catch (error) {
     console.error('Erro ao buscar membros:', error);
@@ -234,7 +234,7 @@ export async function getMemberById(id: string): Promise<Member | null> {
   try {
     const memberRef = doc(db, 'members', id);
     const memberSnap = await getDoc(memberRef);
-    
+
     if (memberSnap.exists()) {
       const data = memberSnap.data();
       return {
@@ -279,7 +279,7 @@ export async function initProfileDB(): Promise<void> {
     const userId = await getCurrentUserId();
     const profileRef = doc(db, 'profiles', userId);
     const profileSnap = await getDoc(profileRef);
-    
+
     if (!profileSnap.exists()) {
       const defaultProfile: UserProfile = {
         id: userId,
@@ -292,7 +292,7 @@ export async function initProfileDB(): Promise<void> {
       };
       await setDoc(profileRef, defaultProfile);
     }
-    
+
     console.log('Firebase Profile DB inicializado para usuário:', userId);
   } catch (error) {
     console.error('Erro ao inicializar Profile DB:', error);
@@ -305,7 +305,7 @@ export async function getProfile(): Promise<UserProfile | null> {
     const userId = await getCurrentUserId();
     const profileRef = doc(db, 'profiles', userId);
     const profileSnap = await getDoc(profileRef);
-    
+
     if (profileSnap.exists()) {
       const data = profileSnap.data();
       return {
@@ -326,14 +326,14 @@ export async function updateProfile(data: { name: string; email: string; avatar_
     const userId = await getCurrentUserId();
     const profileRef = doc(db, 'profiles', userId);
     const currentProfile = await getProfile();
-    
+
     const updatedProfile: Partial<UserProfile> = {
       name: data.name,
       email: data.email,
       avatar_uri: data.avatar_uri !== undefined ? data.avatar_uri : currentProfile?.avatar_uri || null,
       updatedAt: new Date()
     };
-    
+
     await updateDoc(profileRef, updatedProfile);
   } catch (error) {
     console.error('Erro ao atualizar perfil:', error);
@@ -353,7 +353,7 @@ export async function addTreatment(treatment: Omit<Treatment, 'id' | 'userId' | 
       createdAt: new Date(),
       updatedAt: new Date()
     };
-    
+
     await setDoc(treatmentRef, newTreatment);
     console.log('Tratamento adicionado com sucesso:', newTreatment);
     return treatmentRef.id;
@@ -369,7 +369,7 @@ export async function getAllTreatments(): Promise<Treatment[]> {
     const treatmentsRef = collection(db, 'treatments');
     const q = query(treatmentsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
-    
+
     const treatments: Treatment[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
@@ -379,7 +379,7 @@ export async function getAllTreatments(): Promise<Treatment[]> {
         updatedAt: data.updatedAt.toDate()
       } as Treatment);
     });
-    
+
     return treatments;
   } catch (error) {
     console.error('Erro ao buscar tratamentos:', error);
@@ -392,13 +392,13 @@ export async function getTreatmentsByMemberId(memberId: string): Promise<Treatme
     const userId = await getCurrentUserId();
     const treatmentsRef = collection(db, 'treatments');
     const q = query(
-      treatmentsRef, 
+      treatmentsRef,
       where('userId', '==', userId),
       where('member_id', '==', memberId),
       orderBy('createdAt', 'desc')
     );
     const querySnapshot = await getDocs(q);
-    
+
     const treatments: Treatment[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
@@ -408,7 +408,7 @@ export async function getTreatmentsByMemberId(memberId: string): Promise<Treatme
         updatedAt: data.updatedAt.toDate()
       } as Treatment);
     });
-    
+
     return treatments;
   } catch (error) {
     console.error('Erro ao buscar tratamentos por membro:', error);
@@ -420,7 +420,7 @@ export async function getTreatmentById(id: string): Promise<Treatment | null> {
   try {
     const treatmentRef = doc(db, 'treatments', id);
     const treatmentSnap = await getDoc(treatmentRef);
-    
+
     if (treatmentSnap.exists()) {
       const data = treatmentSnap.data();
       return {
@@ -471,7 +471,7 @@ export async function saveDocument(document: Omit<Document, 'id' | 'userId' | 'c
       createdAt: new Date(),
       updatedAt: new Date()
     };
-    
+
     await setDoc(documentRef, newDocument);
     console.log('Documento salvo com sucesso:', newDocument);
     return documentRef.id;
@@ -486,13 +486,13 @@ export async function getDocumentsByMemberId(memberId: string): Promise<Document
     const userId = await getCurrentUserId();
     const documentsRef = collection(db, 'documents');
     const q = query(
-      documentsRef, 
+      documentsRef,
       where('userId', '==', userId),
       where('member_id', '==', memberId),
       orderBy('createdAt', 'desc')
     );
     const querySnapshot = await getDocs(q);
-    
+
     const documents: Document[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
@@ -502,7 +502,7 @@ export async function getDocumentsByMemberId(memberId: string): Promise<Document
         updatedAt: data.updatedAt.toDate()
       } as Document);
     });
-    
+
     return documents;
   } catch (error) {
     console.error('Erro ao buscar documentos por membro:', error);
@@ -515,7 +515,7 @@ export async function clearAllData(): Promise<void> {
   try {
     const userId = await getCurrentUserId();
     console.log('Limpando todos os dados para usuário:', userId);
-    
+
     // Limpar membros
     const membersRef = collection(db, 'members');
     const membersQuery = query(membersRef, where('userId', '==', userId));
@@ -523,7 +523,7 @@ export async function clearAllData(): Promise<void> {
     membersSnapshot.forEach(async (doc) => {
       await deleteDoc(doc.ref);
     });
-    
+
     // Limpar tratamentos
     const treatmentsRef = collection(db, 'treatments');
     const treatmentsQuery = query(treatmentsRef, where('userId', '==', userId));
@@ -531,7 +531,7 @@ export async function clearAllData(): Promise<void> {
     treatmentsSnapshot.forEach(async (doc) => {
       await deleteDoc(doc.ref);
     });
-    
+
     // Limpar documentos
     const documentsRef = collection(db, 'documents');
     const documentsQuery = query(documentsRef, where('userId', '==', userId));
@@ -539,7 +539,7 @@ export async function clearAllData(): Promise<void> {
     documentsSnapshot.forEach(async (doc) => {
       await deleteDoc(doc.ref);
     });
-    
+
     console.log('Todos os dados foram limpos');
   } catch (error) {
     console.error('Erro ao limpar dados:', error);
@@ -551,9 +551,9 @@ export async function clearAllData(): Promise<void> {
 export async function signInWithGoogle(): Promise<User> {
   try {
     console.log('[Google Auth] Iniciando autenticação com Google...');
-    
+
     const { GoogleSignin } = require('@react-native-google-signin/google-signin');
-    
+
     // Configurar Google Sign-In
     GoogleSignin.configure({
       webClientId: GOOGLE_WEB_CLIENT_ID,
@@ -572,14 +572,14 @@ export async function signInWithGoogle(): Promise<User> {
 
     // Fazer login no Firebase
     const result = await signInWithCredential(auth, googleCredential);
-    
+
     console.log('[Google Auth] Login no Firebase realizado com sucesso:', result.user.uid);
-    
+
     // Criar perfil se for um novo usuário
     const profileDoc = await getDoc(doc(db, 'profiles', result.user.uid));
     if (!profileDoc.exists()) {
       console.log('[Google Auth] Criando novo perfil de usuário...');
-      
+
       const profile: UserProfile = {
         id: result.user.uid,
         name: result.user.displayName || 'Usuário Google',
@@ -589,17 +589,17 @@ export async function signInWithGoogle(): Promise<User> {
         createdAt: new Date(),
         updatedAt: new Date()
       };
-      
+
       await setDoc(doc(db, 'profiles', result.user.uid), profile);
       console.log('[Google Auth] Perfil criado com sucesso');
     } else {
       console.log('[Google Auth] Perfil já existe, fazendo login...');
     }
-    
+
     return result.user;
   } catch (error: any) {
     console.error('[Google Auth] Erro detalhado:', error);
-    
+
     if (error.code === 'SIGN_IN_CANCELLED') {
       throw new Error('Login com Google cancelado pelo usuário');
     } else if (error.code === 'IN_PROGRESS') {
@@ -607,7 +607,7 @@ export async function signInWithGoogle(): Promise<User> {
     } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
       throw new Error('Google Play Services não disponível');
     }
-    
+
     throw error;
   }
 }
@@ -615,7 +615,7 @@ export async function signInWithGoogle(): Promise<User> {
 export async function signInWithApple(): Promise<User> {
   try {
     console.log('[Apple Auth] Iniciando autenticação com Apple...');
-    
+
     // Verificar se o Apple Sign-In está disponível
     const isAvailable = await AppleAuthentication.isAvailableAsync();
     if (!isAvailable) {
@@ -645,21 +645,21 @@ export async function signInWithApple(): Promise<User> {
       });
 
       console.log('[Apple Auth] Fazendo login no Firebase...');
-      
+
       // Fazer login no Firebase
       const result = await signInWithCredential(auth, firebaseCredential);
-      
+
       console.log('[Apple Auth] Login no Firebase realizado com sucesso:', result.user.uid);
-      
+
       // Criar perfil se for um novo usuário (verificar se o perfil já existe)
       const profileDoc = await getDoc(doc(db, 'profiles', result.user.uid));
       if (!profileDoc.exists()) {
         console.log('[Apple Auth] Criando novo perfil de usuário...');
-        
-        const displayName = credential.fullName 
+
+        const displayName = credential.fullName
           ? `${credential.fullName.givenName || ''} ${credential.fullName.familyName || ''}`.trim()
           : 'Usuário Apple';
-        
+
         const profile: UserProfile = {
           id: result.user.uid,
           name: displayName || 'Usuário Apple',
@@ -669,20 +669,20 @@ export async function signInWithApple(): Promise<User> {
           createdAt: new Date(),
           updatedAt: new Date()
         };
-        
+
         await setDoc(doc(db, 'profiles', result.user.uid), profile);
         console.log('[Apple Auth] Perfil criado com sucesso');
       } else {
         console.log('[Apple Auth] Perfil já existe, fazendo login...');
       }
-      
+
       return result.user;
     } else {
       throw new Error('Token de identidade não recebido do Apple Sign-In');
     }
   } catch (error: any) {
     console.error('[Apple Auth] Erro detalhado:', error);
-    
+
     if (error.code === 'ERR_CANCELED' || error.code === 'ERR_REQUEST_CANCELED') {
       throw new Error('Login com Apple cancelado pelo usuário');
     } else if (error.code === 'ERR_INVALID_RESPONSE') {
@@ -696,7 +696,7 @@ export async function signInWithApple(): Promise<User> {
     } else if (error.code === 'ERR_REQUEST_UNKNOWN') {
       throw new Error('Erro desconhecido no Apple Sign-In');
     }
-    
+
     throw error;
   }
 } 
