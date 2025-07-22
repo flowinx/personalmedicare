@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
+import { GeminiConfig } from '../../constants/GeminiConfig';
 import { getAllTreatments, Treatment } from '../../db/index';
 import { getMemberById, Member } from '../../db/members';
 
@@ -80,7 +81,7 @@ export default function MemberReportScreen() {
       const prompt = `Considere o seguinte histórico de medicamentos consumidos:\n${historico}\n\nFaça uma análise detalhada sobre a situação do paciente, possíveis riscos, recomendações e pontos de atenção. Responda de forma clara e objetiva. Use frases curtas, destaque pontos importantes com emojis e, o mais importante, NÃO utilize nenhuma formatação markdown (como **, *, #, etc.).`;
       
       console.log('[MemberReport] Gerando relatório com Gemini...');
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyDLL64gXACWEcnmSSJyjZV_pdVSTDn5yus`, {
+      const response = await fetch(`${GeminiConfig.BASE_URL}?key=${GeminiConfig.API_KEY}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

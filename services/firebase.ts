@@ -4,14 +4,24 @@ import { createUserWithEmailAndPassword, getAuth, GoogleAuthProvider, OAuthProvi
 import { collection, deleteDoc, doc, getDoc, getDocs, getFirestore, orderBy, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+import {
+  FIREBASE_API_KEY,
+  FIREBASE_AUTH_DOMAIN,
+  FIREBASE_PROJECT_ID,
+  FIREBASE_STORAGE_BUCKET,
+  FIREBASE_MESSAGING_SENDER_ID,
+  FIREBASE_APP_ID,
+  GOOGLE_WEB_CLIENT_ID
+} from '@env';
+
 // Configuração do Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyDjNStUaX7thWY1FbTHE5l5Vnrw-u6Lmk0",
-  authDomain: "glasscare-2025.firebaseapp.com",
-  projectId: "glasscare-2025",
-  storageBucket: "glasscare-2025.firebasestorage.app",
-  messagingSenderId: "648780623753",
-  appId: "1:648780623753:ios:9b3abd536077a0bb863b58"
+  apiKey: FIREBASE_API_KEY,
+  authDomain: FIREBASE_AUTH_DOMAIN,
+  projectId: FIREBASE_PROJECT_ID,
+  storageBucket: FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: FIREBASE_MESSAGING_SENDER_ID,
+  appId: FIREBASE_APP_ID
 };
 
 // Inicializar Firebase
@@ -546,7 +556,7 @@ export async function signInWithGoogle(): Promise<User> {
     
     // Configurar Google Sign-In
     GoogleSignin.configure({
-      webClientId: '648780623753-nrsoqamkiaikg06mvlfiuq65g5qm8r0g.apps.googleusercontent.com',
+      webClientId: GOOGLE_WEB_CLIENT_ID,
       offlineAccess: true,
     });
 

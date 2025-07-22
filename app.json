@@ -57,7 +57,9 @@
       "typedRoutes": true
     },
     "extra": {
-      "GEMINI_API_KEY": "AIzaSyBvQvQvQvQvQvQvQvQvQvQvQvQvQvQvQvQ"
+      "eas": {
+        "projectId": "your-project-id"
+      }
     }
   }
 }

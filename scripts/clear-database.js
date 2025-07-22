@@ -1,14 +1,16 @@
 const { initializeApp } = require('firebase/app');
 const { getFirestore, collection, getDocs, doc, deleteDoc, writeBatch } = require('firebase/firestore');
 
-// Configuração do Firebase
+// Configuração do Firebase - usando variáveis de ambiente
+require('dotenv').config();
+
 const firebaseConfig = {
-  apiKey: "AIzaSyDjNStUaX7thWY1FbTHE5l5Vnrw-u6Lmk0",
-  authDomain: "glasscare-2025.firebaseapp.com",
-  projectId: "glasscare-2025",
-  storageBucket: "glasscare-2025.firebasestorage.app",
-  messagingSenderId: "648780623753",
-  appId: "1:648780623753:ios:9b3abd536077a0bb863b58"
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID
 };
 
 // Inicializar Firebase
