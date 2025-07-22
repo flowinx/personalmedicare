@@ -10,9 +10,12 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.personalmedicare",
+      "bundleIdentifier": "com.flowinx.personalmedicareapp",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Este app precisa acessar suas fotos para permitir que você escolha uma imagem de perfil."
+      },
+      "entitlements": {
+        "com.apple.developer.applesignin": ["Default"]
       }
     },
     "android": {
@@ -21,7 +24,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.personalmedicare"
+      "package": "com.flowinx.personalmedicareapp"
     },
     "web": {
       "bundler": "metro",
@@ -42,6 +45,12 @@
       "expo-sqlite",
       "expo-notifications",
       "@react-native-firebase/app",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.648780623753-nrsoqamkiaikg06mvlfiuq65g5qm8r0g"
+        }
+      ],
       "expo-dev-client"
     ],
     "experiments": {

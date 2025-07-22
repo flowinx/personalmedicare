@@ -540,22 +540,90 @@ export async function clearAllData(): Promise<void> {
 // Funções de login social
 export async function signInWithGoogle(): Promise<User> {
   try {
-    // Para simplificar, vamos usar uma abordagem básica
-    // Em produção, você precisaria configurar o Google Sign-In adequadamente
-    throw new Error('Login com Google ainda não implementado. Use email/senha por enquanto.');
-  } catch (error) {
-    console.error('Erro ao fazer login com Google:', error);
+    console.log('[Google Auth] Iniciando autenticação com Google...');
+    
+    const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+    
+    // Configurar Google Sign-In
+    GoogleSignin.configure({
+      webClientId: '648780623753-nrsoqamkiaikg06mvlfiuq65g5qm8r0g.apps.googleusercontent.com',
+      offlineAccess: true,
+    });
+
+    // Verificar se o Google Play Services está disponível (Android)
+    await GoogleSignin.hasPlayServices();
+
+    // Fazer login com Google
+    const userInfo = await GoogleSignin.signIn();
+    console.log('[Google Auth] Informações do usuário recebidas:', userInfo);
+
+    // Criar credencial do Firebase
+    const googleCredential = GoogleAuthProvider.credential(userInfo.data?.idToken);
+
+    // Fazer login no Firebase
+    const result = await signInWithCredential(auth, googleCredential);
+    
+    console.log('[Google Auth] Login no Firebase realizado com sucesso:', result.user.uid);
+    
+    // Criar perfil se for um novo usuário
+    const profileDoc = await getDoc(doc(db, 'profiles', result.user.uid));
+    if (!profileDoc.exists()) {
+      console.log('[Google Auth] Criando novo perfil de usuário...');
+      
+      const profile: UserProfile = {
+        id: result.user.uid,
+        name: result.user.displayName || 'Usuário Google',
+        email: result.user.email || '',
+        avatar_uri: result.user.photoURL || null,
+        userId: result.user.uid,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      await setDoc(doc(db, 'profiles', result.user.uid), profile);
+      console.log('[Google Auth] Perfil criado com sucesso');
+    } else {
+      console.log('[Google Auth] Perfil já existe, fazendo login...');
+    }
+    
+    return result.user;
+  } catch (error: any) {
+    console.error('[Google Auth] Erro detalhado:', error);
+    
+    if (error.code === 'SIGN_IN_CANCELLED') {
+      throw new Error('Login com Google cancelado pelo usuário');
+    } else if (error.code === 'IN_PROGRESS') {
+      throw new Error('Login com Google já está em progresso');
+    } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+      throw new Error('Google Play Services não disponível');
+    }
+    
     throw error;
   }
 }
 
 export async function signInWithApple(): Promise<User> {
   try {
+    console.log('[Apple Auth] Iniciando autenticação com Apple...');
+    
+    // Verificar se o Apple Sign-In está disponível
+    const isAvailable = await AppleAuthentication.isAvailableAsync();
+    if (!isAvailable) {
+      throw new Error('Apple Sign-In não está disponível neste dispositivo');
+    }
+
     const credential = await AppleAuthentication.signInAsync({
       requestedScopes: [
         AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
         AppleAuthentication.AppleAuthenticationScope.EMAIL,
       ],
+    });
+
+    console.log('[Apple Auth] Credencial recebida:', {
+      user: credential.user,
+      email: credential.email,
+      fullName: credential.fullName,
+      hasIdentityToken: !!credential.identityToken
     });
 
     if (credential.identityToken) {
@@ -566,16 +634,26 @@ export async function signInWithApple(): Promise<User> {
         // rawNonce não está disponível no Expo AppleAuthentication
       });
 
+      console.log('[Apple Auth] Fazendo login no Firebase...');
+      
       // Fazer login no Firebase
       const result = await signInWithCredential(auth, firebaseCredential);
+      
+      console.log('[Apple Auth] Login no Firebase realizado com sucesso:', result.user.uid);
       
       // Criar perfil se for um novo usuário (verificar se o perfil já existe)
       const profileDoc = await getDoc(doc(db, 'profiles', result.user.uid));
       if (!profileDoc.exists()) {
+        console.log('[Apple Auth] Criando novo perfil de usuário...');
+        
+        const displayName = credential.fullName 
+          ? `${credential.fullName.givenName || ''} ${credential.fullName.familyName || ''}`.trim()
+          : 'Usuário Apple';
+        
         const profile: UserProfile = {
           id: result.user.uid,
-          name: credential.fullName?.givenName + ' ' + credential.fullName?.familyName || 'Usuário Apple',
-          email: result.user.email || '',
+          name: displayName || 'Usuário Apple',
+          email: result.user.email || credential.email || '',
           avatar_uri: null,
           userId: result.user.uid,
           createdAt: new Date(),
@@ -583,6 +661,9 @@ export async function signInWithApple(): Promise<User> {
         };
         
         await setDoc(doc(db, 'profiles', result.user.uid), profile);
+        console.log('[Apple Auth] Perfil criado com sucesso');
+      } else {
+        console.log('[Apple Auth] Perfil já existe, fazendo login...');
       }
       
       return result.user;
@@ -590,10 +671,22 @@ export async function signInWithApple(): Promise<User> {
       throw new Error('Token de identidade não recebido do Apple Sign-In');
     }
   } catch (error: any) {
-    if (error.code === 'ERR_CANCELED') {
+    console.error('[Apple Auth] Erro detalhado:', error);
+    
+    if (error.code === 'ERR_CANCELED' || error.code === 'ERR_REQUEST_CANCELED') {
       throw new Error('Login com Apple cancelado pelo usuário');
+    } else if (error.code === 'ERR_INVALID_RESPONSE') {
+      throw new Error('Resposta inválida do Apple Sign-In');
+    } else if (error.code === 'ERR_REQUEST_FAILED') {
+      throw new Error('Falha na requisição do Apple Sign-In');
+    } else if (error.code === 'ERR_REQUEST_NOT_HANDLED') {
+      throw new Error('Requisição não processada pelo Apple Sign-In');
+    } else if (error.code === 'ERR_REQUEST_NOT_INTERACTIVE') {
+      throw new Error('Apple Sign-In não está disponível no modo não interativo');
+    } else if (error.code === 'ERR_REQUEST_UNKNOWN') {
+      throw new Error('Erro desconhecido no Apple Sign-In');
     }
-    console.error('Erro ao fazer login com Apple:', error);
+    
     throw error;
   }
 } 

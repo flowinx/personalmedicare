@@ -1,4 +1,4 @@
-package com.anonymous.PersonalMediCare
+package com.flowinx.personalmedicareapp
 
 import android.app.Application
 import android.content.res.Configuration

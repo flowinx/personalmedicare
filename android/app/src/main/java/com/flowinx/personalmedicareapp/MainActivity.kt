@@ -1,4 +1,4 @@
-package com.anonymous.PersonalMediCare
+package com.flowinx.personalmedicareapp
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
