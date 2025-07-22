@@ -48,8 +48,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "GROQ_API_KEY": "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",
-      "GROQ_API_URL": "https://api.groq.com/openai/v1/chat/completions"
+      "GEMINI_API_KEY": "AIzaSyBvQvQvQvQvQvQvQvQvQvQvQvQvQvQvQvQ"
     }
   }
 }

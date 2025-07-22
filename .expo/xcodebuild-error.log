@@ -1,9 +1,0 @@
---- xcodebuild: WARNING: Using the first of multiple matching destinations:
-{ platform:iOS Simulator, arch:arm64, id:C4CDFABA-15E7-4D8A-A27F-361CBDC37B6A, OS:18.5, name:iPhone 16 }
-{ platform:iOS Simulator, arch:x86_64, id:C4CDFABA-15E7-4D8A-A27F-361CBDC37B6A, OS:18.5, name:iPhone 16 }
-** BUILD FAILED **
-
-
-The following build commands failed:
-	Building workspace PersonalMediCare with scheme PersonalMediCare and configuration Debug
-(1 failure)
