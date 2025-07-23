@@ -128,24 +128,7 @@ export default function MemberDetailScreen() {
             </View>
           </View>
           
-          <Text style={styles.sectionTitle}>Observações Médicas</Text>
-          <Text style={styles.notes}>{member.notes || 'Nenhuma observação.'}</Text>
-          
-          <Text style={styles.sectionTitle}>Histórico de Tratamentos</Text>
-          {treatments.length > 0 ? (
-            treatments.map(treatment => (
-              <View key={treatment.id} style={styles.treatmentCard}>
-                <Text style={styles.treatmentMedication}>{treatment.medication}</Text>
-                <Text style={styles.treatmentDosage}>{treatment.dosage}</Text>
-                <View style={styles.treatmentFooter}>
-                    <Text style={styles.treatmentDate}>Início: {new Date(treatment.start_datetime).toLocaleDateString()}</Text>
-                    <Text style={[styles.treatmentStatus, treatment.status === 'ativo' ? styles.statusActive : styles.statusInactive]}>{treatment.status}</Text>
-                </View>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.noTreatmentsText}>Nenhum tratamento registrado.</Text>
-          )}
+
 
           <TouchableOpacity style={styles.reportButton} onPress={() => navigation.navigate('Dossiê do Membro', { id: memberId })}>
             <Text style={styles.reportButtonText}>Ver Dossiê</Text>
@@ -167,7 +150,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: '100%',
-    height: 350,
+    height: 280,
   },
   avatar: {
     width: '100%',
@@ -194,7 +177,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9F9F9',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    marginTop: -30,
+    marginTop: -80,
     flex: 1,
   },
   headerContainer: {
@@ -241,18 +224,7 @@ const styles = StyleSheet.create({
     color: '#8A8A8A',
     marginTop: 5,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-  },
-  notes: {
-    fontSize: 16,
-    color: '#555',
-    lineHeight: 24,
-    marginBottom: 20,
-  },
+
   mainButton: {
     backgroundColor: '#b081ee',
     borderRadius: 15,
@@ -265,61 +237,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  treatmentCard: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  treatmentMedication: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  treatmentDosage: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  treatmentFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  treatmentDate: {
-    fontSize: 12,
-    color: '#8A8A8A',
-  },
-  treatmentStatus: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  statusActive: {
-    backgroundColor: '#DFF9E8',
-    color: '#28A745',
-  },
-  statusInactive: {
-    backgroundColor: '#F8D7DA',
-    color: '#721C24',
-  },
-  noTreatmentsText: {
-    textAlign: 'center',
-    color: '#8A8A8A',
-    marginTop: 20,
-    marginBottom: 20,
-  },
+
   reportButton: {
     backgroundColor: '#b081ee',
     borderRadius: 12,
@@ -333,4 +251,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-}); 
+});

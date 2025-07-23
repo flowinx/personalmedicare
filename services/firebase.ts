@@ -48,8 +48,14 @@ export interface Member {
   name: string;
   relation: string;
   dob: string;
+  bloodType?: string;
+  blood_type?: string; // Campo antigo para compatibilidade
   notes?: string;
   avatar_uri?: string;
+  emergencyPhone?: string;
+  height?: string;
+  weight?: string;
+  medicalConditions?: string;
   userId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -185,12 +191,24 @@ export async function initMembersDB(): Promise<void> {
   }
 }
 
+// Função utilitária para remover campos undefined
+function removeUndefinedFields(obj: any): any {
+  const cleaned: any = {};
+  for (const key in obj) {
+    if (obj[key] !== undefined) {
+      cleaned[key] = obj[key];
+    }
+  }
+  return cleaned;
+}
+
 export async function addMember(member: Omit<Member, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<string> {
   try {
     const userId = await getCurrentUserId();
     const memberRef = doc(collection(db, 'members'));
+    const cleanedMember = removeUndefinedFields(member);
     const newMember: Member = {
-      ...member,
+      ...cleanedMember,
       id: memberRef.id,
       userId,
       createdAt: new Date(),
@@ -253,8 +271,9 @@ export async function getMemberById(id: string): Promise<Member | null> {
 export async function updateMember(id: string, member: Omit<Member, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<void> {
   try {
     const memberRef = doc(db, 'members', id);
+    const cleanedMember = removeUndefinedFields(member);
     await updateDoc(memberRef, {
-      ...member,
+      ...cleanedMember,
       updatedAt: new Date()
     });
   } catch (error) {
@@ -265,10 +284,13 @@ export async function updateMember(id: string, member: Omit<Member, 'id' | 'user
 
 export async function deleteMember(id: string): Promise<void> {
   try {
+    console.log('Firebase: deleteMember called for ID:', id);
     const memberRef = doc(db, 'members', id);
+    console.log('Firebase: Deleting member document...');
     await deleteDoc(memberRef);
+    console.log('Firebase: Member document deleted successfully:', id);
   } catch (error) {
-    console.error('Erro ao deletar membro:', error);
+    console.error('Firebase: Error deleting member:', error);
     throw error;
   }
 }
@@ -699,4 +721,4 @@ export async function signInWithApple(): Promise<User> {
 
     throw error;
   }
-} 
+}

@@ -14,23 +14,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  console.log('[AuthContext] AuthProvider renderizado - user:', user ? 'existe' : 'null', 'loading:', loading);
+
   useEffect(() => {
     console.log('[AuthContext] Iniciando monitoramento de autenticação...');
     
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log('[AuthContext] Estado de autenticação mudou:', user ? `Usuário: ${user.email}` : 'Nenhum usuário');
-      setUser(user);
-      setLoading(false);
-    }, (error) => {
-      console.error('[AuthContext] Erro no monitoramento de autenticação:', error);
-      setUser(null);
-      setLoading(false);
-    });
+    try {
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        console.log('[AuthContext] Estado de autenticação mudou:', user ? `Usuário: ${user.email}` : 'Nenhum usuário');
+        setUser(user);
+        setLoading(false);
+      }, (error) => {
+        console.error('[AuthContext] Erro no monitoramento de autenticação:', error);
+        setUser(null);
+        setLoading(false);
+      });
 
-    return () => {
-      console.log('[AuthContext] Limpando monitoramento de autenticação');
-      unsubscribe();
-    };
+      return () => {
+        console.log('[AuthContext] Limpando monitoramento de autenticação');
+        unsubscribe();
+      };
+    } catch (error) {
+      console.error('[AuthContext] Erro ao configurar monitoramento:', error);
+      setLoading(false);
+    }
   }, []);
 
   const signOut = async () => {

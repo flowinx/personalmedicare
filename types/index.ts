@@ -4,8 +4,14 @@ export interface Member {
   name: string;
   relation: string;
   dob: string;
+  bloodType?: string;
+  blood_type?: string; // Campo antigo para compatibilidade
   notes?: string;
   avatar_uri?: string;
+  emergencyPhone?: string;
+  height?: string;
+  weight?: string;
+  medicalConditions?: string;
   userId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -56,4 +62,4 @@ export interface TreatmentWithMember extends Treatment {
 
 export interface MemberWithTreatments extends Member {
   treatments_count: number;
-} 
+}
