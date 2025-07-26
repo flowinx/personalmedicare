@@ -32,7 +32,14 @@ import RemindersScreen from './screens/RemindersScreen';
 import ExportDataScreen from './screens/ExportDataScreen';
 import FamilySyncScreen from './screens/FamilySyncScreen';
 import ThemeScreen from './screens/ThemeScreen';
+import LanguageScreen from './screens/LanguageScreen';
+import AboutScreen from './screens/AboutScreen';
+import HelpCenterScreen from './screens/HelpCenterScreen';
+import ContactScreen from './screens/ContactScreen';
 import ReportsScreen from './screens/ReportsScreen';
+import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
+import TermsOfServiceScreen from './screens/TermsOfServiceScreen';
+import DataCollectionScreen from './screens/DataCollectionScreen';
 
 type AuthStackParamList = {
   Login: undefined;
@@ -58,6 +65,13 @@ type SettingsStackParamList = {
   ExportData: undefined;
   FamilySync: undefined;
   Theme: undefined;
+  Language: undefined;
+  About: undefined;
+  HelpCenter: undefined;
+  Contact: undefined;
+  PrivacyPolicy: undefined;
+  TermsOfService: undefined;
+  DataCollection: undefined;
 };
 
 const AuthStackNavigator = createStackNavigator<AuthStackParamList>();
@@ -163,6 +177,41 @@ function SettingsStack() {
         component={ThemeScreen}
         options={{ headerShown: false }}
       />
+      <SettingsStackNavigator.Screen
+        name="Language"
+        component={LanguageScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNavigator.Screen
+        name="About"
+        component={AboutScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNavigator.Screen
+        name="HelpCenter"
+        component={HelpCenterScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNavigator.Screen
+        name="Contact"
+        component={ContactScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNavigator.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicyScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNavigator.Screen
+        name="TermsOfService"
+        component={TermsOfServiceScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNavigator.Screen
+        name="DataCollection"
+        component={DataCollectionScreen}
+        options={{ headerShown: false }}
+      />
     </SettingsStackNavigator.Navigator>
   );
 }
@@ -192,7 +241,7 @@ function MainDrawer() {
         name="HomeStack"
         component={HomeStack}
         options={{
-          title: 'Detalhe do Membro',
+          title: 'Personal MediCare',
           drawerLabel: 'Início',
           drawerIcon: ({ color }) => (
             <Ionicons name="home-outline" size={24} color={color} />
@@ -203,7 +252,7 @@ function MainDrawer() {
         name="AddMember"
         component={AddMemberScreen}
         options={{
-          title: 'Adicionar Membro',
+          title: 'Personal MediCare',
           drawerLabel: 'Adicionar Membro',
           drawerIcon: ({ color }) => (
             <Ionicons name="person-add-outline" size={24} color={color} />
@@ -214,7 +263,7 @@ function MainDrawer() {
         name="TreatmentsStack"
         component={TreatmentsStack}
         options={{
-          title: 'Tratamentos',
+          title: 'Personal MediCare',
           drawerLabel: 'Tratamentos',
           drawerIcon: ({ color }) => (
             <Ionicons name="medical-outline" size={24} color={color} />
@@ -225,7 +274,7 @@ function MainDrawer() {
         name="AddTreatment"
         component={AddTreatmentScreen}
         options={{
-          title: 'Novo Tratamento',
+          title: 'Personal MediCare',
           drawerItemStyle: { display: 'none' }, // Oculta do menu drawer
         }}
       />
@@ -234,7 +283,7 @@ function MainDrawer() {
         name="Reports"
         component={ReportsScreen}
         options={{
-          title: 'Relatórios',
+          title: 'Personal MediCare',
           drawerLabel: 'Relatórios',
           drawerIcon: ({ color }) => (
             <Ionicons name="bar-chart-outline" size={24} color={color} />
@@ -245,7 +294,7 @@ function MainDrawer() {
         name="SettingsStack"
         component={SettingsStack}
         options={{
-          title: 'Configurações',
+          title: 'Personal MediCare',
           drawerLabel: 'Configurações',
           drawerIcon: ({ color }) => (
             <Ionicons name="settings-outline" size={24} color={color} />

@@ -130,6 +130,27 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
     Alert.alert('Em breve', `A funcionalidade "${feature}" será implementada em breve.`);
   };
 
+  const handleRateApp = () => {
+    Alert.alert(
+      'Avaliar Personal Medicare',
+      'Sua avaliação nos ajuda a melhorar o aplicativo e ajudar mais famílias!',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Avaliar na App Store', 
+          onPress: () => {
+            // Em produção, abriria a loja específica (iOS/Android)
+            Alert.alert(
+              'Obrigado!',
+              'Em breve você será redirecionado para a loja de aplicativos para deixar sua avaliação.',
+              [{ text: 'OK' }]
+            );
+          }
+        }
+      ]
+    );
+  };
+
   const SettingItem = ({ 
     icon, 
     title, 
@@ -274,13 +295,13 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
               icon="language-outline"
               title="Idioma"
               subtitle="Português (Brasil)"
-              onPress={() => handleNotImplemented('Idioma')}
+              onPress={() => navigation.navigate('Language')}
             />
             <SettingItem
               icon="information-circle-outline"
               title="Sobre"
               subtitle="Versão 1.0.0"
-              onPress={() => handleNotImplemented('Sobre')}
+              onPress={() => navigation.navigate('About')}
             />
           </View>
         </View>
@@ -293,19 +314,19 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
               icon="help-circle-outline"
               title="Central de Ajuda"
               subtitle="FAQ e tutoriais"
-              onPress={() => handleNotImplemented('Central de Ajuda')}
+              onPress={() => navigation.navigate('HelpCenter')}
             />
             <SettingItem
               icon="chatbubble-outline"
               title="Contato"
               subtitle="Fale conosco"
-              onPress={() => handleNotImplemented('Contato')}
+              onPress={() => navigation.navigate('Contact')}
             />
             <SettingItem
               icon="star-outline"
               title="Avaliar App"
               subtitle="Deixe sua avaliação"
-              onPress={() => handleNotImplemented('Avaliar App')}
+              onPress={handleRateApp}
             />
           </View>
         </View>

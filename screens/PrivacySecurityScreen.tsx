@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,17 +9,268 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../contexts/AuthContext';
+import { getAllMembers, getAllTreatments, deleteMember, deleteTreatment } from '../services/firebase';
+import { deleteUser } from 'firebase/auth';
+import { deleteDoc, doc } from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 interface PrivacySecurityScreenProps {
   navigation: any;
 }
 
 export default function PrivacySecurityScreen({ navigation }: PrivacySecurityScreenProps) {
+  const { user } = useAuth();
   const [biometricAuth, setBiometricAuth] = useState(false);
   const [autoLock, setAutoLock] = useState(true);
   const [dataEncryption, setDataEncryption] = useState(true);
   const [shareAnalytics, setShareAnalytics] = useState(false);
-  const [locationAccess, setLocationAccess] = useState(false);
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  const [biometricType, setBiometricType] = useState<string>('');
+
+  useEffect(() => {
+    checkBiometricSupport();
+    loadBiometricSetting();
+  }, []);
+
+  const checkBiometricSupport = async () => {
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      
+      setBiometricSupported(compatible && enrolled);
+      
+      if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+        setBiometricType('Face ID');
+      } else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+        setBiometricType('Touch ID');
+      } else {
+        setBiometricType('Biometria');
+      }
+    } catch (error) {
+      console.error('Erro ao verificar suporte biométrico:', error);
+      setBiometricSupported(false);
+    }
+  };
+
+  const loadBiometricSetting = async () => {
+    try {
+      const saved = await AsyncStorage.getItem('biometric_auth_enabled');
+      if (saved !== null) {
+        setBiometricAuth(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar configuração biométrica:', error);
+    }
+  };
+
+  const saveBiometricSetting = async (enabled: boolean) => {
+    try {
+      await AsyncStorage.setItem('biometric_auth_enabled', JSON.stringify(enabled));
+    } catch (error) {
+      console.error('Erro ao salvar configuração biométrica:', error);
+    }
+  };
+
+  const handleBiometricToggle = async (value: boolean) => {
+    if (!biometricSupported) {
+      Alert.alert(
+        'Biometria Não Disponível',
+        'Seu dispositivo não suporta autenticação biométrica ou você não tem biometria configurada.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    if (value) {
+      // Ativar biometria - solicitar autenticação primeiro
+      try {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Confirme sua identidade para ativar a autenticação biométrica',
+          cancelLabel: 'Cancelar',
+          fallbackLabel: 'Usar senha',
+        });
+
+        if (result.success) {
+          setBiometricAuth(true);
+          await saveBiometricSetting(true);
+          Alert.alert(
+            'Biometria Ativada',
+            `${biometricType} foi ativado com sucesso para o Personal MediCare.`,
+            [{ text: 'OK' }]
+          );
+        } else {
+          setBiometricAuth(false);
+          if (result.error === 'UserCancel') {
+            // Usuário cancelou, não mostrar erro
+          } else {
+            Alert.alert(
+              'Falha na Autenticação',
+              'Não foi possível verificar sua identidade. Tente novamente.',
+              [{ text: 'OK' }]
+            );
+          }
+        }
+      } catch (error) {
+        console.error('Erro na autenticação biométrica:', error);
+        setBiometricAuth(false);
+        Alert.alert(
+          'Erro',
+          'Ocorreu um erro ao configurar a autenticação biométrica.',
+          [{ text: 'OK' }]
+        );
+      }
+    } else {
+      // Desativar biometria
+      Alert.alert(
+        'Desativar Biometria',
+        `Tem certeza que deseja desativar o ${biometricType}?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Desativar',
+            style: 'destructive',
+            onPress: async () => {
+              setBiometricAuth(false);
+              await saveBiometricSetting(false);
+              Alert.alert(
+                'Biometria Desativada',
+                'A autenticação biométrica foi desativada.',
+                [{ text: 'OK' }]
+              );
+            }
+          }
+        ]
+      );
+    }
+  };
+
+  const handleDeleteAllData = () => {
+    Alert.alert(
+      '⚠️ Excluir Todos os Dados',
+      'Esta ação é IRREVERSÍVEL e irá:\n\n• Excluir todos os membros da família\n• Remover todos os tratamentos\n• Apagar seu perfil completamente\n• Deletar sua conta permanentemente\n\nTem certeza absoluta?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Continuar', 
+          style: 'destructive',
+          onPress: showFinalConfirmation
+        }
+      ]
+    );
+  };
+
+  const showFinalConfirmation = () => {
+    Alert.alert(
+      '🚨 ÚLTIMA CONFIRMAÇÃO',
+      'Digite "EXCLUIR" para confirmar a exclusão permanente de todos os seus dados:',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Confirmar Exclusão', 
+          style: 'destructive',
+          onPress: () => {
+            Alert.prompt(
+              'Confirmação Final',
+              'Digite "EXCLUIR" (em maiúsculas) para confirmar:',
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                { 
+                  text: 'Excluir Tudo', 
+                  style: 'destructive',
+                  onPress: (text) => {
+                    if (text === 'EXCLUIR') {
+                      executeDataDeletion();
+                    } else {
+                      Alert.alert(
+                        'Confirmação Incorreta',
+                        'Você deve digitar exatamente "EXCLUIR" para confirmar.',
+                        [{ text: 'OK' }]
+                      );
+                    }
+                  }
+                }
+              ],
+              'plain-text'
+            );
+          }
+        }
+      ]
+    );
+  };
+
+  const executeDataDeletion = async () => {
+    const loadingAlert = Alert.alert(
+      'Excluindo Dados...',
+      'Por favor, aguarde. Esta operação pode levar alguns minutos.',
+      [],
+      { cancelable: false }
+    );
+
+    try {
+      // 1. Excluir todos os membros da família
+      console.log('🗑️ Excluindo membros da família...');
+      const members = await getAllMembers();
+      for (const member of members) {
+        await deleteMember(member.id);
+      }
+
+      // 2. Excluir todos os tratamentos
+      console.log('🗑️ Excluindo tratamentos...');
+      const treatments = await getAllTreatments();
+      for (const treatment of treatments) {
+        await deleteTreatment(treatment.id);
+      }
+
+      // 3. Excluir dados do perfil
+      console.log('🗑️ Excluindo dados do perfil...');
+      if (user?.uid) {
+        await deleteDoc(doc(db, 'users', user.uid));
+      }
+
+      // 4. Limpar dados locais
+      console.log('🗑️ Limpando dados locais...');
+      await AsyncStorage.clear();
+
+      // 5. Excluir conta do Firebase Auth
+      console.log('🗑️ Excluindo conta...');
+      if (user) {
+        await deleteUser(user);
+      }
+
+      // Sucesso - usuário será redirecionado automaticamente para login
+      Alert.alert(
+        '✅ Dados Excluídos',
+        'Todos os seus dados foram excluídos permanentemente. Você será redirecionado para a tela de login.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // O usuário será automaticamente deslogado pelo Firebase
+            }
+          }
+        ]
+      );
+
+    } catch (error) {
+      console.error('❌ Erro ao excluir dados:', error);
+      
+      Alert.alert(
+        '❌ Erro na Exclusão',
+        'Ocorreu um erro ao excluir seus dados. Alguns dados podem não ter sido removidos completamente. Entre em contato com o suporte.',
+        [
+          { text: 'OK' },
+          { 
+            text: 'Contatar Suporte', 
+            onPress: () => navigation.navigate('Contact')
+          }
+        ]
+      );
+    }
+  };
 
   const handleNotImplemented = (feature: string) => {
     Alert.alert('Em breve', `A funcionalidade "${feature}" será implementada em breve.`);
@@ -77,16 +328,14 @@ export default function PrivacySecurityScreen({ navigation }: PrivacySecurityScr
               <SettingItem
                 icon="finger-print"
                 title="Autenticação Biométrica"
-                subtitle="Use impressão digital ou Face ID"
+                subtitle={biometricSupported ? `Use ${biometricType} para acessar o app` : 'Não disponível neste dispositivo'}
                 onPress={() => {}}
                 showArrow={false}
                 rightComponent={
                   <Switch 
                     value={biometricAuth} 
-                    onValueChange={(value) => {
-                      setBiometricAuth(value);
-                      handleNotImplemented('Autenticação Biométrica');
-                    }} 
+                    onValueChange={handleBiometricToggle}
+                    disabled={!biometricSupported}
                   />
                 }
               />
@@ -105,18 +354,6 @@ export default function PrivacySecurityScreen({ navigation }: PrivacySecurityScr
                     }} 
                   />
                 }
-              />
-              <SettingItem
-                icon="key"
-                title="Alterar Senha"
-                subtitle="Atualizar sua senha de acesso"
-                onPress={() => handleNotImplemented('Alterar Senha')}
-              />
-              <SettingItem
-                icon="shield-checkmark"
-                title="Verificação em Duas Etapas"
-                subtitle="Adicionar camada extra de segurança"
-                onPress={() => handleNotImplemented('Verificação em Duas Etapas')}
               />
             </View>
           </View>
@@ -142,38 +379,6 @@ export default function PrivacySecurityScreen({ navigation }: PrivacySecurityScr
                   />
                 }
               />
-              <SettingItem
-                icon="analytics"
-                title="Compartilhar Dados de Uso"
-                subtitle="Ajudar a melhorar o aplicativo"
-                onPress={() => {}}
-                showArrow={false}
-                rightComponent={
-                  <Switch 
-                    value={shareAnalytics} 
-                    onValueChange={(value) => {
-                      setShareAnalytics(value);
-                      handleNotImplemented('Compartilhar Dados de Uso');
-                    }} 
-                  />
-                }
-              />
-              <SettingItem
-                icon="location"
-                title="Acesso à Localização"
-                subtitle="Para lembretes baseados em local"
-                onPress={() => {}}
-                showArrow={false}
-                rightComponent={
-                  <Switch 
-                    value={locationAccess} 
-                    onValueChange={(value) => {
-                      setLocationAccess(value);
-                      handleNotImplemented('Acesso à Localização');
-                    }} 
-                  />
-                }
-              />
             </View>
           </View>
 
@@ -185,32 +390,13 @@ export default function PrivacySecurityScreen({ navigation }: PrivacySecurityScr
                 icon="download"
                 title="Exportar Meus Dados"
                 subtitle="Baixar todos os seus dados"
-                onPress={() => handleNotImplemented('Exportar Dados')}
+                onPress={() => navigation.navigate('ExportData')}
               />
               <SettingItem
                 icon="trash"
                 title="Excluir Todos os Dados"
                 subtitle="Remover permanentemente seus dados"
-                onPress={() => {
-                  Alert.alert(
-                    'Excluir Dados',
-                    'Esta ação não pode ser desfeita. Todos os seus dados serão permanentemente removidos.',
-                    [
-                      { text: 'Cancelar', style: 'cancel' },
-                      { 
-                        text: 'Excluir', 
-                        style: 'destructive',
-                        onPress: () => handleNotImplemented('Excluir Dados')
-                      }
-                    ]
-                  );
-                }}
-              />
-              <SettingItem
-                icon="time"
-                title="Histórico de Atividades"
-                subtitle="Ver suas atividades recentes"
-                onPress={() => handleNotImplemented('Histórico de Atividades')}
+                onPress={handleDeleteAllData}
               />
             </View>
           </View>
@@ -223,19 +409,19 @@ export default function PrivacySecurityScreen({ navigation }: PrivacySecurityScr
                 icon="document-text"
                 title="Política de Privacidade"
                 subtitle="Como tratamos seus dados"
-                onPress={() => handleNotImplemented('Política de Privacidade')}
+                onPress={() => navigation.navigate('PrivacyPolicy')}
               />
               <SettingItem
                 icon="document"
                 title="Termos de Uso"
                 subtitle="Condições de uso do aplicativo"
-                onPress={() => handleNotImplemented('Termos de Uso')}
+                onPress={() => navigation.navigate('TermsOfService')}
               />
               <SettingItem
                 icon="information-circle"
                 title="Sobre a Coleta de Dados"
                 subtitle="Quais dados coletamos e por quê"
-                onPress={() => handleNotImplemented('Sobre a Coleta de Dados')}
+                onPress={() => navigation.navigate('DataCollection')}
               />
             </View>
           </View>
