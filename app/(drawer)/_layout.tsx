@@ -42,6 +42,17 @@ function DrawerContent(props: DrawerContentComponentProps) {
     }
   };
 
+  // Renderizar manualmente os itens do drawer (excluindo "Novo Tratamento")
+  const menuItems = [
+    { name: 'Home', label: t('home'), icon: 'home-outline' },
+    { name: 'Cadastrar Membro', label: t('addMember'), icon: 'person-add-outline' },
+    { name: 'Tratamentos', label: t('treatments'), icon: 'list-outline' },
+    { name: 'Perfil', label: t('profile'), icon: 'person-circle-outline' },
+    { name: 'Dossiê', label: t('dossier'), icon: 'folder-open-outline' },
+    { name: 'Configurações', label: t('settings'), icon: 'settings-outline' },
+    { name: 'Chat Inteligente', label: t('intelligentChat'), icon: 'chatbubble-ellipses-outline' },
+  ];
+
   return (
     <LinearGradient colors={['#b081ee', '#7f53ac']} style={{ flex: 1 }} start={{x:0, y:0}} end={{x:1, y:1}}>
       <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1, paddingTop: 0, backgroundColor: 'transparent' }}>
@@ -56,7 +67,20 @@ function DrawerContent(props: DrawerContentComponentProps) {
           </Text>
         </View>
         <View style={{ flex: 1, paddingHorizontal: 8 }}>
-          <DrawerItemList {...props} />
+          {menuItems.map((item) => (
+            <DrawerItem
+              key={item.name}
+              label={item.label}
+              labelStyle={{ color: '#fff', fontWeight: 'normal', fontFamily: 'Inter', fontSize: 16 }}
+              icon={({ color, size }) => <Ionicons name={item.icon as any} size={size} color="#fff" />}
+              onPress={() => {
+                props.navigation.navigate(item.name);
+              }}
+              focused={props.state.routeNames[props.state.index] === item.name}
+              activeTintColor="#fff"
+              inactiveTintColor="#fff"
+            />
+          ))}
         </View>
         <View style={{ flex: 1 }} />
         <DrawerItem
@@ -77,7 +101,7 @@ export default function DrawerLayout() {
   return (
     <AuthGuard>
       <Drawer.Navigator
-        key={language}
+        key={`${language}-drawer-v2`}
         initialRouteName="Home"
         drawerContent={props => <DrawerContent {...props} />}
         screenOptions={{
@@ -106,13 +130,7 @@ export default function DrawerLayout() {
           headerTintColor: '#2d1155',
           headerStyle: { backgroundColor: '#fff' },
         }} />
-        <Drawer.Screen name="Novo Tratamento" component={AddTreatmentScreen} options={{ 
-          drawerIcon: ({ color, size }) => <Ionicons name="medkit-outline" size={size} color={color} />, 
-          drawerLabel: t('newTreatment'),
-          headerTitle: t('newTreatment'),
-          headerTintColor: '#2d1155',
-          headerStyle: { backgroundColor: '#fff' },
-        }} />
+
         <Drawer.Screen name="Análise de Documentos" component={DocumentAnalysisScreen} options={{ 
           drawerIcon: ({ color, size }) => <Ionicons name="document-text-outline" size={size} color={color} />, 
           drawerLabel: t('documentAnalysis'),
@@ -145,10 +163,17 @@ export default function DrawerLayout() {
           headerTintColor: '#2d1155',
           headerStyle: { backgroundColor: '#fff' },
         }} />
+
         <Drawer.Screen name="Tratamentos" component={AllTreatmentsScreen} options={{ 
           drawerIcon: ({ color, size }) => <Ionicons name="list-outline" size={size} color={color} />, 
           drawerLabel: t('treatments'),
           headerTitle: t('treatments'),
+          headerTintColor: '#2d1155',
+          headerStyle: { backgroundColor: '#fff' },
+        }} />
+        <Drawer.Screen name="Novo Tratamento" component={AddTreatmentScreen} options={{ 
+          drawerItemStyle: { display: 'none' }, 
+          headerTitle: t('newTreatment'),
           headerTintColor: '#2d1155',
           headerStyle: { backgroundColor: '#fff' },
         }} />

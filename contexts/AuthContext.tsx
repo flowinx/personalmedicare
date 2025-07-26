@@ -1,6 +1,6 @@
 import { User, onAuthStateChanged } from 'firebase/auth';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth } from '../services/firebase';
+import { auth, initializeUserProfile } from '../services/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -20,8 +20,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('[AuthContext] Iniciando monitoramento de autenticação...');
     
     try {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
         console.log('[AuthContext] Estado de autenticação mudou:', user ? `Usuário: ${user.email}` : 'Nenhum usuário');
+        
+        if (user) {
+          // Usuário logado - inicializar perfil se necessário
+          try {
+            console.log('[AuthContext] Usuário autenticado, verificando perfil...');
+            await initializeUserProfile(user);
+          } catch (error) {
+            console.error('[AuthContext] Erro ao inicializar perfil do usuário:', error);
+            // Não bloquear o login se houver erro na inicialização do perfil
+          }
+        }
+        
         setUser(user);
         setLoading(false);
       }, (error) => {

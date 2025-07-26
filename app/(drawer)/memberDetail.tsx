@@ -3,7 +3,6 @@ import { NavigationProp, useNavigation, useRoute } from '@react-navigation/nativ
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getAllTreatments } from '../../db/index';
 import { Member, getMemberById } from '../../db/members';
 
 type RootStackParamList = {
@@ -12,13 +11,7 @@ type RootStackParamList = {
   'Dossiê do Membro': { id: string };
 };
 
-interface Treatment {
-    id: string;
-    medication: string;
-    dosage: string;
-    start_datetime: string;
-    status: string;
-}
+// Removed unused Treatment interface
 
 export default function MemberDetailScreen() {
   const router = useRouter();
@@ -26,7 +19,6 @@ export default function MemberDetailScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const memberId = ((route.params as any)?.id ? String((route.params as any).id) : '');
   const [member, setMember] = useState<Member | null>(null);
-  const [treatments, setTreatments] = useState<Treatment[]>([]);
 
   const loadData = useCallback(async () => {
     if (!memberId) return;
@@ -34,19 +26,7 @@ export default function MemberDetailScreen() {
       const memberData = await getMemberById(memberId);
       setMember(memberData);
 
-      if (memberData) {
-        const allTreatments = await getAllTreatments();
-        const memberTreatments = allTreatments
-          .filter(treatment => treatment.member_id === memberId)
-          .map(treatment => ({
-            id: treatment.id,
-            medication: treatment.medication,
-            dosage: treatment.dosage,
-            start_datetime: treatment.start_datetime,
-            status: treatment.status
-          }));
-        setTreatments(memberTreatments);
-      }
+
     } catch (error) {
       console.error("Failed to load member or treatment data:", error);
     }

@@ -156,6 +156,124 @@ Formate a resposta de forma clara e objetiva.`;
   }
 }
 
+export async function generateMedicalDossier(memberData: {
+  name: string;
+  age: number;
+  bloodType?: string;
+  weight?: string;
+  height?: string;
+  relation: string;
+  treatments: Array<{
+    medication: string;
+    dosage?: string;
+    frequency_value: number;
+    frequency_unit: string;
+    duration: string;
+    status: string;
+    notes?: string;
+  }>;
+  notes?: string;
+}): Promise<string> {
+  try {
+    const activeTreatments = memberData.treatments.filter(t => t.status === 'ativo');
+    const completedTreatments = memberData.treatments.filter(t => t.status === 'finalizado');
+    
+    const prompt = `Como um médico especialista experiente, analise o perfil médico completo do paciente e forneça um dossiê médico detalhado e profissional:
+
+👤 PERFIL DO PACIENTE:
+• Nome: ${memberData.name}
+• Idade: ${memberData.age} anos
+• Relação: ${memberData.relation}
+• Tipo Sanguíneo: ${memberData.bloodType || 'Não informado'}
+• Peso: ${memberData.weight || 'Não informado'}
+• Altura: ${memberData.height || 'Não informado'}
+${memberData.notes ? `• Observações: ${memberData.notes}` : ''}
+
+💊 TRATAMENTOS ATIVOS (${activeTreatments.length}):
+${activeTreatments.map(t => 
+  `• ${t.medication}${t.dosage ? ` - ${t.dosage}` : ''} - ${t.frequency_value} ${t.frequency_unit} por ${t.duration}${t.notes ? ` (${t.notes})` : ''}`
+).join('\n') || 'Nenhum tratamento ativo'}
+
+📋 HISTÓRICO DE TRATAMENTOS (${completedTreatments.length}):
+${completedTreatments.map(t => 
+  `• ${t.medication}${t.dosage ? ` - ${t.dosage}` : ''} - Finalizado`
+).join('\n') || 'Nenhum tratamento finalizado'}
+
+Por favor, forneça uma análise médica completa e profissional seguindo esta estrutura:
+
+🔍 ANÁLISE CLÍNICA GERAL
+[Avaliação geral do estado de saúde baseado nos dados disponíveis]
+
+💊 ANÁLISE FARMACOLÓGICA
+[Análise dos medicamentos em uso, possíveis interações, adequação das dosagens]
+
+⚠️ ALERTAS E PRECAUÇÕES
+[Identificação de possíveis riscos, contraindicações ou cuidados especiais]
+
+📊 INDICADORES DE SAÚDE
+[Análise de peso, altura, IMC se possível, e outros indicadores relevantes]
+
+🎯 RECOMENDAÇÕES MÉDICAS
+[Sugestões específicas para otimizar o tratamento e a saúde geral]
+
+📅 MONITORAMENTO SUGERIDO
+[Frequência de consultas, exames recomendados, acompanhamentos necessários]
+
+IMPORTANTE:
+✅ Use linguagem médica profissional mas acessível
+✅ Seja específico e detalhado nas análises
+✅ Considere a idade e características do paciente
+✅ Identifique padrões nos medicamentos
+✅ Forneça insights valiosos baseados na experiência médica
+✅ Use emojis médicos para organizar as seções
+❌ NÃO use formatação markdown (sem **, *, #, etc.)
+❌ NÃO substitua diagnóstico médico real
+❌ SEMPRE recomende consulta médica para decisões importantes
+
+Forneça uma análise completa, profissional e informativa que agregue real valor ao acompanhamento médico do paciente.`;
+
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            {
+              text: prompt
+            }
+          ]
+        }
+      ]
+    };
+
+    const response = await fetch(`${GeminiConfig.BASE_URL}?key=${GeminiConfig.API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro na requisição: ${response.status}`);
+    }
+
+    const data: GeminiResponse = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error.message || 'Erro ao gerar dossiê médico');
+    }
+
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Nenhuma análise médica gerada');
+    }
+
+    return data.candidates[0].content.parts[0].text.trim();
+
+  } catch (error) {
+    console.error('[Gemini] Erro ao gerar dossiê médico:', error);
+    throw new Error('Erro ao gerar análise médica. Tente novamente.');
+  }
+}
+
 export async function askGeminiChat(userMessage: string): Promise<string> {
   if (!userMessage.trim()) {
     throw new Error('Mensagem não pode estar vazia');

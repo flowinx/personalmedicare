@@ -2,11 +2,9 @@ import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Dimensions, Image, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Image, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { signInWithApple, signInWithEmail, signInWithGoogle } from '../../services/firebase';
 import { useEntranceAnimation } from '../../utils/animations';
-
-const { width: screenWidth } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const router = useRouter();

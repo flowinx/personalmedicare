@@ -12,10 +12,14 @@ interface TreatmentWithAdherence extends Treatment {
   takenDoses: number;
 }
 
+interface RouteParams {
+  id?: string;
+}
+
 export default function MemberReportScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  const memberId = (route.params as any)?.id as string | undefined;
+  const memberId = (route.params as RouteParams)?.id;
   const [member, setMember] = useState<Member | null>(null);
   const [treatments, setTreatments] = useState<TreatmentWithAdherence[]>([]);
   const [loading, setLoading] = useState(true);

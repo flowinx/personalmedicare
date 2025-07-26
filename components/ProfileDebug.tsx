@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { resetDatabase } from '../db/index';
 import { getProfile, updateProfile } from '../db/profile';
@@ -14,11 +14,7 @@ export function ProfileDebug() {
     console.log(`[ProfileDebug] ${message}`);
   };
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     setLoading(true);
     try {
       addLog('Carregando perfil...');
@@ -30,7 +26,11 @@ export function ProfileDebug() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   const testUpdateProfile = async () => {
     setLoading(true);

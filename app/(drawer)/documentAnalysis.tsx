@@ -31,11 +31,6 @@ export default function DocumentAnalysisScreen() {
   // Animações de entrada
   const { fadeAnim, slideAnim, startAnimation } = useEntranceAnimation();
 
-  useEffect(() => {
-    startAnimation();
-    loadMembers();
-  }, [startAnimation]);
-
   const loadMembers = useCallback(async () => {
     try {
       const allMembers = await getAllMembers();
@@ -44,6 +39,72 @@ export default function DocumentAnalysisScreen() {
       console.error('Erro ao carregar membros:', error);
     }
   }, []);
+
+  useEffect(() => {
+    startAnimation();
+    loadMembers();
+  }, [startAnimation, loadMembers]);
+
+  const processDocument = useCallback(async (doc: DocumentPicker.DocumentPickerResult) => {
+    if (!selectedMemberId || !doc.assets || doc.assets.length === 0) {
+      return;
+    }
+
+    setIsLoading(true);
+    setProcessingStep('Iniciando processamento...');
+
+    try {
+      const asset = doc.assets[0];
+      console.log('[DocumentAnalysis] Tipo do arquivo:', asset.mimeType);
+
+      if (asset.mimeType === 'application/pdf') {
+        console.log('[DocumentAnalysis] Processando PDF via webhook...');
+        setProcessingStep('Enviando PDF para análise, aguarde...');
+        const webhookResult = await sendPdfToWebhook(asset.uri, asset.name, asset.mimeType);
+        console.log('[DocumentAnalysis] Resultado do webhook recebido');
+        setAnalysis(webhookResult);
+        setProcessingStep('Salvando documento...');
+
+        const documentData: DocumentData = {
+          member_id: selectedMemberId,
+          file_name: asset.name,
+          file_uri: asset.uri,
+          file_type: asset.mimeType,
+          analysis_text: webhookResult,
+          created_at: new Date().toISOString()
+        };
+
+        await saveDocument(documentData);
+        console.log('[DocumentAnalysis] Documento salvo com sucesso');
+        setProcessingStep('');
+      } else {
+        setProcessingStep('Extraindo texto do documento...');
+        const extractedText = await extractTextFromDocument(asset.uri, asset.mimeType || 'application/octet-stream');
+        setProcessingStep('Analisando o documento...');
+        const analysisResult = await analyzeDocument(extractedText);
+        setAnalysis(analysisResult);
+        setProcessingStep('Salvando documento...');
+
+        const documentData: DocumentData = {
+          member_id: selectedMemberId,
+          file_name: asset.name,
+          file_uri: asset.uri,
+          file_type: asset.mimeType || 'application/octet-stream',
+          analysis_text: analysisResult,
+          created_at: new Date().toISOString()
+        };
+
+        await saveDocument(documentData);
+        setProcessingStep('');
+      }
+    } catch (error) {
+      console.error('Erro na análise do documento:', error);
+      alert(error instanceof Error ? error.message : 'Erro ao processar o documento. Por favor, tente novamente.');
+    } finally {
+      setIsLoading(false);
+      setProcessingStep('');
+    }
+  }, [selectedMemberId]);
 
   const pickDocument = useCallback(async () => {
     if (!selectedMemberId) {
@@ -64,45 +125,45 @@ export default function DocumentAnalysisScreen() {
     } catch (err) {
       console.error('Erro ao selecionar documento:', err);
     }
-  }, [selectedMemberId]);
+  }, [selectedMemberId, processDocument]);
 
   async function sendPdfToWebhook(fileUri: string, fileName: string, mimeType: string): Promise<string> {
     const formData = new FormData();
     // @ts-ignore
     formData.append('file', { uri: fileUri, name: fileName, type: mimeType });
-    
+
     try {
       console.log('[DocumentAnalysis] === INICIANDO ENVIO PARA WEBHOOK ===');
       console.log('[DocumentAnalysis] URL do webhook:', N8NConfig.DOCUMENT_ANALYSIS_WEBHOOK);
       console.log('[DocumentAnalysis] Nome do arquivo:', fileName);
       console.log('[DocumentAnalysis] Tipo MIME:', mimeType);
       console.log('[DocumentAnalysis] URI do arquivo:', fileUri);
-      
+
       const response = await fetch(N8NConfig.DOCUMENT_ANALYSIS_WEBHOOK, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'multipart/form-data',
           'Accept': 'application/json'
         },
         body: formData,
       });
-      
+
       console.log('[DocumentAnalysis] Status da resposta:', response.status);
       console.log('[DocumentAnalysis] Headers da resposta:', response.headers);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[DocumentAnalysis] Erro na resposta:', errorText);
         throw new Error(`Erro ao enviar PDF para análise. Status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log('[DocumentAnalysis] Dados recebidos:', data);
-      
+
       if (data.error) {
         throw new Error(data.error);
       }
-      
+
       return data.analysis || data.text || 'Análise não disponível';
     } catch (error) {
       console.error('[DocumentAnalysis] Erro no webhook:', error);
@@ -110,76 +171,17 @@ export default function DocumentAnalysisScreen() {
     }
   }
 
-  const processDocument = async (doc: DocumentPicker.DocumentPickerResult) => {
-    if (!selectedMemberId || !doc.assets || doc.assets.length === 0) {
-      return;
-    }
 
-    setIsLoading(true);
-    setProcessingStep('Iniciando processamento...');
-
-    try {
-      const asset = doc.assets[0];
-      console.log('[DocumentAnalysis] Tipo do arquivo:', asset.mimeType);
-      
-      if (asset.mimeType === 'application/pdf') {
-        console.log('[DocumentAnalysis] Processando PDF via webhook...');
-        setProcessingStep('Enviando PDF para análise, aguarde...');
-        const webhookResult = await sendPdfToWebhook(asset.uri, asset.name, asset.mimeType);
-        console.log('[DocumentAnalysis] Resultado do webhook recebido');
-        setAnalysis(webhookResult);
-        setProcessingStep('Salvando documento...');
-        
-        const documentData: DocumentData = {
-          member_id: selectedMemberId,
-          file_name: asset.name,
-          file_uri: asset.uri,
-          file_type: asset.mimeType,
-          analysis_text: webhookResult,
-          created_at: new Date().toISOString()
-        };
-        
-        await saveDocument(documentData);
-        console.log('[DocumentAnalysis] Documento salvo com sucesso');
-        setProcessingStep('');
-      } else {
-        setProcessingStep('Extraindo texto do documento...');
-        const extractedText = await extractTextFromDocument(asset.uri, asset.mimeType || 'application/octet-stream');
-        setProcessingStep('Analisando o documento...');
-        const analysisResult = await analyzeDocument(extractedText);
-        setAnalysis(analysisResult);
-        setProcessingStep('Salvando documento...');
-        
-        const documentData: DocumentData = {
-          member_id: selectedMemberId,
-          file_name: asset.name,
-          file_uri: asset.uri,
-          file_type: asset.mimeType || 'application/octet-stream',
-          analysis_text: analysisResult,
-          created_at: new Date().toISOString()
-        };
-        
-        await saveDocument(documentData);
-        setProcessingStep('');
-      }
-    } catch (error) {
-      console.error('Erro na análise do documento:', error);
-      alert(error instanceof Error ? error.message : 'Erro ao processar o documento. Por favor, tente novamente.');
-    } finally {
-      setIsLoading(false);
-      setProcessingStep('');
-    }
-  };
 
   const handleSelectMember = useCallback((id: string) => {
-  setSelectedMemberId(id);
-  setMemberModalVisible(false);
-}, []);
+    setSelectedMemberId(id);
+    setMemberModalVisible(false);
+  }, []);
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
@@ -189,12 +191,12 @@ export default function DocumentAnalysisScreen() {
               <FontAwesome name="user" size={20} color="#b081ee" style={styles.cardIcon} />
               <ThemedText style={styles.cardTitle}>Selecionar Membro</ThemedText>
             </View>
-            
+
             <View style={styles.inputContainer}>
               <View style={styles.inputWrapper}>
                 <FontAwesome name="users" size={16} color="#b081ee" style={styles.inputIcon} />
-                <TouchableOpacity 
-                  style={[styles.input, !selectedMemberId && styles.inputPlaceholder]} 
+                <TouchableOpacity
+                  style={[styles.input, !selectedMemberId && styles.inputPlaceholder]}
                   onPress={() => setMemberModalVisible(true)}
                   disabled={members.length === 0}
                 >
@@ -204,7 +206,7 @@ export default function DocumentAnalysisScreen() {
                   <FontAwesome name="chevron-down" size={16} color="#b081ee" />
                 </TouchableOpacity>
               </View>
-              
+
               {members.length === 0 && (
                 <ThemedText style={styles.noMembersText}>
                   Nenhum membro cadastrado. Cadastre um membro para usar esta função.
@@ -219,7 +221,7 @@ export default function DocumentAnalysisScreen() {
               <FontAwesome name="file-text-o" size={20} color="#b081ee" style={styles.cardIcon} />
               <ThemedText style={styles.cardTitle}>Documento</ThemedText>
             </View>
-            
+
             <TouchableOpacity
               style={[styles.uploadButton, (!selectedMemberId || members.length === 0) && styles.uploadButtonDisabled]}
               onPress={pickDocument}
@@ -231,7 +233,7 @@ export default function DocumentAnalysisScreen() {
                 {document && !document.canceled ? 'Selecionar outro documento' : 'Selecionar documento'}
               </ThemedText>
             </TouchableOpacity>
-            
+
             {document && !document.canceled && (
               <View style={styles.documentInfo}>
                 <FontAwesome name="file" size={16} color="#b081ee" />

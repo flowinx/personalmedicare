@@ -42,7 +42,7 @@ export default function TreatmentDetailScreen() {
     startAnimation();
   }, [startAnimation]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     console.log('[TreatmentDetail] Navegando para Tratamentos...');
     try {
       // Navegar diretamente para a tela Tratamentos
@@ -52,7 +52,7 @@ export default function TreatmentDetailScreen() {
       console.error('[TreatmentDetail] Erro ao navegar para Tratamentos:', error);
       Alert.alert('Erro', 'Não foi possível voltar. Use o botão voltar do dispositivo.');
     }
-  };
+  }, [navigation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -89,7 +89,7 @@ export default function TreatmentDetailScreen() {
       };
 
       loadTreatment();
-    }, [treatmentId, router])
+    }, [treatmentId, handleBack])
   );
 
   const getStatusColor = (status: string) => {

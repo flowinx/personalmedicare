@@ -115,8 +115,18 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Meu Perfil</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <TouchableOpacity 
@@ -306,7 +316,8 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           )}
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -314,6 +325,35 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 20,

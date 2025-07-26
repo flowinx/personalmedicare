@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Switch,
   Platform,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
@@ -28,6 +29,9 @@ interface AddTreatmentScreenProps {
 export default function AddTreatmentScreen({ navigation, route }: AddTreatmentScreenProps) {
   const [members, setMembers] = useState<Member[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState(route?.params?.memberId || '');
+  
+  console.log('[AddTreatmentScreen] Route params:', route?.params);
+  console.log('[AddTreatmentScreen] Initial selectedMemberId:', selectedMemberId);
   const [medication, setMedication] = useState('');
   const [dosage, setDosage] = useState('');
   const [frequencyValue, setFrequencyValue] = useState('1');
@@ -39,6 +43,8 @@ export default function AddTreatmentScreen({ navigation, route }: AddTreatmentSc
   const [startTime, setStartTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(true);
+  const [showMemberModal, setShowMemberModal] = useState(false);
+  const [showMedicationModal, setShowMedicationModal] = useState(false);
 
   useEffect(() => {
     loadMembers();
@@ -51,9 +57,12 @@ export default function AddTreatmentScreen({ navigation, route }: AddTreatmentSc
 
   const loadMembers = async () => {
     try {
+      console.log('[AddTreatmentScreen] Carregando membros...');
       const allMembers = await getAllMembers();
+      console.log('[AddTreatmentScreen] Membros carregados:', allMembers.length, allMembers);
       setMembers(allMembers);
     } catch (error) {
+      console.error('[AddTreatmentScreen] Erro ao carregar membros:', error);
       Alert.alert('Erro', 'Erro ao carregar membros');
     } finally {
       setLoadingMembers(false);
@@ -134,10 +143,13 @@ export default function AddTreatmentScreen({ navigation, route }: AddTreatmentSc
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#b081ee" />
-        <Text style={styles.loadingText}>Carregando...</Text>
+        <Text style={styles.loadingText}>Carregando membros...</Text>
       </View>
     );
   }
+
+  console.log('[AddTreatmentScreen] Render - members:', members.length, members);
+  console.log('[AddTreatmentScreen] Render - selectedMemberId:', selectedMemberId);
 
   return (
     <ScrollView style={styles.container}>
@@ -146,53 +158,74 @@ export default function AddTreatmentScreen({ navigation, route }: AddTreatmentSc
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Ionicons name="person" size={20} color="#b081ee" />
-            <Text style={styles.sectionTitle}>Membro da Família</Text>
+            <Text style={styles.sectionTitle}>Membro da Família *</Text>
           </View>
-          <View style={[styles.pickerContainer, Platform.OS === 'web' && styles.webPickerContainer]}>
-            <Picker
-              selectedValue={selectedMemberId}
-              onValueChange={setSelectedMemberId}
-              style={[styles.picker, Platform.OS === 'web' && styles.webPicker]}
-              enabled={true}
-              itemStyle={Platform.OS === 'web' ? styles.webPickerItem : undefined}
-            >
-              <Picker.Item label="Selecione um membro" value="" />
-              {members.map((member) => (
-                <Picker.Item
-                  key={member.id}
-                  label={`${member.name} (${member.relation})`}
-                  value={member.id}
-                />
-              ))}
-            </Picker>
-          </View>
+          <TouchableOpacity 
+            style={styles.pickerContainer}
+            onPress={() => setShowMemberModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.pickerDisplay}>
+              <Text style={[
+                styles.pickerText, 
+                selectedMemberId ? styles.pickerTextSelected : styles.pickerTextPlaceholder
+              ]}>
+                {selectedMemberId 
+                  ? members.find(m => m.id === selectedMemberId)?.name + ' (' + members.find(m => m.id === selectedMemberId)?.relation + ')'
+                  : 'Selecione um membro da família'
+                }
+              </Text>
+              <Ionicons name="chevron-down" size={20} color="#b081ee" />
+            </View>
+          </TouchableOpacity>
+          {selectedMemberId === '' && (
+            <Text style={styles.errorText}>Selecione um membro da família</Text>
+          )}
         </View>
 
         {/* Medication */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Ionicons name="medical" size={20} color="#b081ee" />
-            <Text style={styles.sectionTitle}>Medicamento</Text>
+            <Text style={styles.sectionTitle}>Medicamento *</Text>
           </View>
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={medication}
-              onValueChange={setMedication}
-              style={styles.picker}
+              onValueChange={(itemValue) => {
+                console.log('[AddTreatmentScreen] Medicamento selecionado:', itemValue);
+                setMedication(itemValue);
+              }}
+              style={styles.memberPicker}
             >
-              <Picker.Item label="Selecione um medicamento" value="" />
-              <Picker.Item label="Alenia" value="Alenia" />
-              <Picker.Item label="Dipirona" value="Dipirona" />
-              <Picker.Item label="Paracetamol" value="Paracetamol" />
-              <Picker.Item label="Ibuprofeno" value="Ibuprofeno" />
-              <Picker.Item label="Amoxicilina" value="Amoxicilina" />
-              <Picker.Item label="Omeprazol" value="Omeprazol" />
-              <Picker.Item label="Losartana" value="Losartana" />
-              <Picker.Item label="Metformina" value="Metformina" />
-              <Picker.Item label="Sinvastatina" value="Sinvastatina" />
-              <Picker.Item label="Captopril" value="Captopril" />
-              <Picker.Item label="Outro" value="Outro" />
+              <Picker.Item 
+                label="Selecione um medicamento" 
+                value="" 
+                color="#999"
+              />
+              <Picker.Item label="Alenia" value="Alenia" color="#333" />
+              <Picker.Item label="Dipirona" value="Dipirona" color="#333" />
+              <Picker.Item label="Paracetamol" value="Paracetamol" color="#333" />
+              <Picker.Item label="Ibuprofeno" value="Ibuprofeno" color="#333" />
+              <Picker.Item label="Amoxicilina" value="Amoxicilina" color="#333" />
+              <Picker.Item label="Omeprazol" value="Omeprazol" color="#333" />
+              <Picker.Item label="Losartana" value="Losartana" color="#333" />
+              <Picker.Item label="Metformina" value="Metformina" color="#333" />
+              <Picker.Item label="Sinvastatina" value="Sinvastatina" color="#333" />
+              <Picker.Item label="Captopril" value="Captopril" color="#333" />
+              <Picker.Item label="Outro" value="Outro" color="#333" />
             </Picker>
+          </View>
+          {medication === '' && (
+            <Text style={styles.errorText}>Selecione um medicamento</Text>
+          )}
+        </View>
+        
+        {/* Dosage */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="medical-outline" size={20} color="#b081ee" />
+            <Text style={styles.sectionTitle}>Dosagem *</Text>
           </View>
           <View style={styles.dosageContainer}>
             <TextInput
@@ -206,6 +239,9 @@ export default function AddTreatmentScreen({ navigation, route }: AddTreatmentSc
               <Ionicons name="information-circle" size={20} color="#b081ee" />
             </TouchableOpacity>
           </View>
+          {dosage === '' && (
+            <Text style={styles.errorText}>Digite a dosagem do medicamento</Text>
+          )}
         </View>
 
         {/* Frequency */}
@@ -335,6 +371,56 @@ export default function AddTreatmentScreen({ navigation, route }: AddTreatmentSc
           )}
         </TouchableOpacity>
 
+        {/* Member Selection Modal */}
+        <Modal
+          visible={showMemberModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowMemberModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Selecione um Membro</Text>
+                <TouchableOpacity 
+                  onPress={() => setShowMemberModal(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView style={styles.modalBody}>
+                {members.map((member) => (
+                  <TouchableOpacity
+                    key={member.id}
+                    style={[
+                      styles.memberOption,
+                      selectedMemberId === member.id && styles.memberOptionSelected
+                    ]}
+                    onPress={() => {
+                      console.log('[AddTreatmentScreen] Membro selecionado via modal:', member.id);
+                      setSelectedMemberId(member.id);
+                      setShowMemberModal(false);
+                    }}
+                  >
+                    <View style={styles.memberOptionContent}>
+                      <Text style={[
+                        styles.memberOptionText,
+                        selectedMemberId === member.id && styles.memberOptionTextSelected
+                      ]}>
+                        {member.name} ({member.relation})
+                      </Text>
+                      {selectedMemberId === member.id && (
+                        <Ionicons name="checkmark" size={20} color="#b081ee" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
       </View>
     </ScrollView>
@@ -542,6 +628,104 @@ const styles = StyleSheet.create({
   webPickerItem: {
     fontSize: 16,
     color: '#333',
+  },
+  memberPickerContainer: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  memberPicker: {
+    height: 50,
+    color: '#333',
+    backgroundColor: '#f8f9fa',
+  },
+  pickerIcon: {
+    position: 'absolute',
+    right: 16,
+    pointerEvents: 'none',
+  },
+  errorText: {
+    color: '#dc3545',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  pickerDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  pickerText: {
+    fontSize: 16,
+    flex: 1,
+  },
+  pickerTextSelected: {
+    color: '#333',
+  },
+  pickerTextPlaceholder: {
+    color: '#999',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '90%',
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  memberOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  memberOptionSelected: {
+    backgroundColor: '#f8f9fa',
+    borderLeftWidth: 4,
+    borderLeftColor: '#b081ee',
+  },
+  memberOptionContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  memberOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  memberOptionTextSelected: {
+    color: '#b081ee',
+    fontWeight: '600',
   },
 
 });

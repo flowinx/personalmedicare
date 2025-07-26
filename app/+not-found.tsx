@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -15,16 +15,7 @@ export default function MedicationDetailsScreen() {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  useEffect(() => {
-    if (medicationName && !hasSearched) {
-      setHasSearched(true);
-      fetchMedicationDetails();
-    }
-  }, [medicationName, hasSearched]);
-
-
-
-  const fetchMedicationDetails = async () => {
+  const fetchMedicationDetails = useCallback(async () => {
     if (!medicationName) {
       return;
     }
@@ -39,7 +30,14 @@ export default function MedicationDetailsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [medicationName]);
+
+  useEffect(() => {
+    if (medicationName && !hasSearched) {
+      setHasSearched(true);
+      fetchMedicationDetails();
+    }
+  }, [medicationName, hasSearched, fetchMedicationDetails]);
 
   // Se não recebeu parâmetros de medicamento, mostrar tela de erro padrão
   if (!medicationName) {

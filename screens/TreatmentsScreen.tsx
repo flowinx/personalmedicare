@@ -43,7 +43,7 @@ export default function TreatmentsScreen({ navigation, route }: TreatmentsScreen
 
       // Filter by member if specified
       const filteredTreatments = route?.params?.memberId
-        ? allTreatments.filter(t => t.member_id === route.params.memberId)
+        ? allTreatments.filter(t => t.member_id === route.params?.memberId)
         : allTreatments;
 
       setTreatments(filteredTreatments);
@@ -113,6 +113,9 @@ export default function TreatmentsScreen({ navigation, route }: TreatmentsScreen
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {route?.params?.memberId ? 'Tratamentos do Membro' : 'Todos os Tratamentos'}
         </Text>
@@ -228,6 +231,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
   },
   addButton: {
     backgroundColor: '#b081ee',

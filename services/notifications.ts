@@ -7,6 +7,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -92,8 +94,9 @@ class NotificationService {
           sound: 'default',
           priority: Notifications.AndroidNotificationPriority.HIGH,
         },
-        trigger: {
-          date: scheduledTime,
+        trigger: { 
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: scheduledTime 
         },
       });
 

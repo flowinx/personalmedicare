@@ -21,7 +21,7 @@ function MessageBubble({ item }: { item: Message }) {
       duration: 400,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [fadeAnim]);
   
   const isUser = item.from === 'user';
   

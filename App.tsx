@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ProfileProvider } from './contexts/ProfileContext';
 import { ThemeProvider } from './theme/ThemeContext';
+import { initDatabase } from './db/index';
 
 // Importar as telas
 import LoginScreen from './screens/LoginScreen';
@@ -20,11 +21,17 @@ import HomeScreen from './screens/HomeScreen';
 import AddMemberScreen from './screens/AddMemberScreen';
 import MemberDetailScreen from './screens/MemberDetailScreen';
 import EditMemberScreen from './screens/EditMemberScreen';
-import AddTreatmentScreen from './screens/AddTreatmentScreen';
+import AddTreatmentScreen from './app/(drawer)/addTreatment';
 import TreatmentsScreen from './screens/TreatmentsScreen';
 import TreatmentDetailScreen from './screens/TreatmentDetailScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import PrivacySecurityScreen from './screens/PrivacySecurityScreen';
+import ChangePasswordScreen from './screens/ChangePasswordScreen';
+import RemindersScreen from './screens/RemindersScreen';
+import ExportDataScreen from './screens/ExportDataScreen';
+import FamilySyncScreen from './screens/FamilySyncScreen';
+import ThemeScreen from './screens/ThemeScreen';
 import ReportsScreen from './screens/ReportsScreen';
 
 type AuthStackParamList = {
@@ -42,9 +49,21 @@ type TreatmentsStackParamList = {
   TreatmentDetail: { treatmentId: string };
 };
 
+type SettingsStackParamList = {
+  SettingsMain: undefined;
+  Profile: undefined;
+  PrivacySecurity: undefined;
+  ChangePassword: undefined;
+  Reminders: undefined;
+  ExportData: undefined;
+  FamilySync: undefined;
+  Theme: undefined;
+};
+
 const AuthStackNavigator = createStackNavigator<AuthStackParamList>();
 const HomeStackNavigator = createStackNavigator<HomeStackParamList>();
 const TreatmentsStackNavigator = createStackNavigator<TreatmentsStackParamList>();
+const SettingsStackNavigator = createStackNavigator<SettingsStackParamList>();
 const Drawer = createDrawerNavigator();
 
 SplashScreen.preventAutoHideAsync();
@@ -61,18 +80,18 @@ function AuthStack() {
 function HomeStack() {
   return (
     <HomeStackNavigator.Navigator>
-      <HomeStackNavigator.Screen 
-        name="HomeMain" 
-        component={HomeScreen} 
+      <HomeStackNavigator.Screen
+        name="HomeMain"
+        component={HomeScreen}
         options={{ headerShown: false }}
       />
-      <HomeStackNavigator.Screen 
-        name="MemberDetail" 
+      <HomeStackNavigator.Screen
+        name="MemberDetail"
         component={MemberDetailScreen}
         options={{ headerShown: false }}
       />
-      <HomeStackNavigator.Screen 
-        name="EditMember" 
+      <HomeStackNavigator.Screen
+        name="EditMember"
         component={EditMemberScreen}
         options={{ headerShown: false }}
       />
@@ -83,21 +102,68 @@ function HomeStack() {
 function TreatmentsStack() {
   return (
     <TreatmentsStackNavigator.Navigator>
-      <TreatmentsStackNavigator.Screen 
-        name="TreatmentsMain" 
-        component={TreatmentsScreen} 
+      <TreatmentsStackNavigator.Screen
+        name="TreatmentsMain"
+        component={TreatmentsScreen}
         options={{ headerShown: false }}
       />
-      <TreatmentsStackNavigator.Screen 
-        name="TreatmentDetail" 
+      <TreatmentsStackNavigator.Screen
+        name="TreatmentDetail"
         component={TreatmentDetailScreen}
-        options={{ 
+        options={{
           title: 'Detalhes do Tratamento',
           headerStyle: { backgroundColor: '#b081ee' },
           headerTintColor: '#fff'
         }}
       />
     </TreatmentsStackNavigator.Navigator>
+  );
+}
+
+function SettingsStack() {
+  return (
+    <SettingsStackNavigator.Navigator>
+      <SettingsStackNavigator.Screen
+        name="SettingsMain"
+        component={SettingsScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNavigator.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNavigator.Screen
+        name="PrivacySecurity"
+        component={PrivacySecurityScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNavigator.Screen
+        name="ChangePassword"
+        component={ChangePasswordScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNavigator.Screen
+        name="Reminders"
+        component={RemindersScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNavigator.Screen
+        name="ExportData"
+        component={ExportDataScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNavigator.Screen
+        name="FamilySync"
+        component={FamilySyncScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNavigator.Screen
+        name="Theme"
+        component={ThemeScreen}
+        options={{ headerShown: false }}
+      />
+    </SettingsStackNavigator.Navigator>
   );
 }
 
@@ -122,8 +188,8 @@ function MainDrawer() {
         },
       }}
     >
-      <Drawer.Screen 
-        name="HomeStack" 
+      <Drawer.Screen
+        name="HomeStack"
         component={HomeStack}
         options={{
           title: 'Detalhe do Membro',
@@ -133,8 +199,8 @@ function MainDrawer() {
           ),
         }}
       />
-      <Drawer.Screen 
-        name="AddMember" 
+      <Drawer.Screen
+        name="AddMember"
         component={AddMemberScreen}
         options={{
           title: 'Adicionar Membro',
@@ -144,8 +210,8 @@ function MainDrawer() {
           ),
         }}
       />
-      <Drawer.Screen 
-        name="TreatmentsStack" 
+      <Drawer.Screen
+        name="TreatmentsStack"
         component={TreatmentsStack}
         options={{
           title: 'Tratamentos',
@@ -155,30 +221,17 @@ function MainDrawer() {
           ),
         }}
       />
-      <Drawer.Screen 
-        name="AddTreatment" 
+      <Drawer.Screen
+        name="AddTreatment"
         component={AddTreatmentScreen}
         options={{
           title: 'Novo Tratamento',
-          drawerLabel: 'Novo Tratamento',
-          drawerIcon: ({ color }) => (
-            <Ionicons name="add-circle-outline" size={24} color={color} />
-          ),
+          drawerItemStyle: { display: 'none' }, // Oculta do menu drawer
         }}
       />
-      <Drawer.Screen 
-        name="Profile" 
-        component={ProfileScreen}
-        options={{
-          title: 'Meu Perfil',
-          drawerLabel: 'Meu Perfil',
-          drawerIcon: ({ color }) => (
-            <Ionicons name="person-outline" size={24} color={color} />
-          ),
-        }}
-      />
-      <Drawer.Screen 
-        name="Reports" 
+
+      <Drawer.Screen
+        name="Reports"
         component={ReportsScreen}
         options={{
           title: 'Relatórios',
@@ -188,9 +241,9 @@ function MainDrawer() {
           ),
         }}
       />
-      <Drawer.Screen 
-        name="Settings" 
-        component={SettingsScreen}
+      <Drawer.Screen
+        name="SettingsStack"
+        component={SettingsStack}
         options={{
           title: 'Configurações',
           drawerLabel: 'Configurações',
@@ -237,6 +290,21 @@ export default function App() {
       SplashScreen.hideAsync();
     }
   }, [loaded]);
+
+  // Inicializar Firebase (sem dependência de autenticação)
+  useEffect(() => {
+    const initializeFirebase = async () => {
+      try {
+        console.log('[App] Firebase inicializado automaticamente na importação');
+        // O Firebase já é inicializado quando importamos o módulo
+        // Não precisamos fazer nada aqui no startup
+      } catch (error) {
+        console.error('[App] Erro na inicialização do Firebase:', error);
+      }
+    };
+
+    initializeFirebase();
+  }, []);
 
   if (!loaded) {
     return null;

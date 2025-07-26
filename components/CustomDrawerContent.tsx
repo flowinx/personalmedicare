@@ -32,7 +32,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
           onPress: async () => {
             try {
               await signOut();
-            } catch (error) {
+            } catch {
               Alert.alert('Erro', 'Erro ao fazer logout');
             }
           }
@@ -66,9 +66,6 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
             <View style={styles.userInfo}>
               <Text style={styles.userName}>
                 {profile?.name || user?.displayName || 'Usuário'}
-              </Text>
-              <Text style={styles.userEmail}>
-                {profile?.email || user?.email || 'email@exemplo.com'}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#999" />
@@ -110,10 +107,15 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   profileSection: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 10,
   },
   avatarContainer: {
     marginRight: 15,
@@ -137,12 +139,12 @@ const styles = StyleSheet.create({
   },
   userInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   userName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 4,
   },
   userEmail: {
     fontSize: 14,

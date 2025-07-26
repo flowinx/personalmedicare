@@ -113,13 +113,17 @@ export default function MemberDetailScreen({ navigation, route }: MemberDetailSc
 
   const handleViewTreatments = () => {
     if (member) {
-      navigation.navigate('TreatmentHistory', { memberId: member.id });
+      navigation.navigate('TreatmentsStack', { 
+        screen: 'TreatmentsMain',
+        params: { memberId: member.id }
+      });
     }
   };
 
   const handleDossier = () => {
-    // TODO: Implementar navegação para o dossiê
-    Alert.alert('Dossiê', 'Funcionalidade em desenvolvimento');
+    if (member) {
+      navigation.navigate('Reports', { memberId: member.id });
+    }
   };
 
   const handleDeleteMember = async () => {
@@ -189,7 +193,16 @@ export default function MemberDetailScreen({ navigation, route }: MemberDetailSc
           <View style={styles.overlay} />
         </View>
         
-
+        {/* Header with Back and Edit buttons */}
+        <View style={styles.headerButtons}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.headerButton} onPress={handleEdit}>
+            <Ionicons name="create-outline" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
 
       </View>
 
@@ -332,6 +345,25 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  headerButtons: {
+    position: 'absolute',
+    top: 50,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    zIndex: 10,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backdropFilter: 'blur(10px)',
   },
 
   memberInfoCard: {

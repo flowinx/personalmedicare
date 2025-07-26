@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
   Switch,
 } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -17,6 +18,92 @@ interface SettingsScreenProps {
 
 export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const { signOut } = useAuth();
+  const [pushNotifications, setPushNotifications] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    checkNotificationPermissions();
+  }, []);
+
+  const checkNotificationPermissions = async () => {
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      setPushNotifications(status === 'granted');
+    } catch (error) {
+      console.error('Erro ao verificar permissões:', error);
+    }
+  };
+
+  const handlePushNotificationToggle = async (value: boolean) => {
+    if (loading) return;
+    
+    setLoading(true);
+    try {
+      if (value) {
+        // Solicitar permissão para notificações
+        const { status } = await Notifications.requestPermissionsAsync();
+        
+        if (status === 'granted') {
+          setPushNotifications(true);
+          
+          // Configurar comportamento das notificações
+          await Notifications.setNotificationHandler({
+            handleNotification: async () => ({
+              shouldShowAlert: true,
+              shouldPlaySound: true,
+              shouldSetBadge: true,
+            }),
+          });
+          
+          Alert.alert(
+            'Notificações Ativadas',
+            'Você receberá lembretes sobre seus medicamentos.',
+            [{ text: 'OK' }]
+          );
+        } else {
+          setPushNotifications(false);
+          Alert.alert(
+            'Permissão Negada',
+            'Para receber notificações, ative as permissões nas configurações do dispositivo.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { 
+                text: 'Configurações', 
+                onPress: () => Notifications.openSettingsAsync()
+              }
+            ]
+          );
+        }
+      } else {
+        // Desativar notificações
+        setPushNotifications(false);
+        await Notifications.cancelAllScheduledNotificationsAsync();
+        
+        Alert.alert(
+          'Notificações Desativadas',
+          'Você não receberá mais lembretes de medicamentos.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Erro ao configurar notificações:', error);
+      Alert.alert('Erro', 'Não foi possível configurar as notificações. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailNotificationToggle = (value: boolean) => {
+    setEmailNotifications(value);
+    if (value) {
+      Alert.alert(
+        'Notificações por Email',
+        'Em breve você poderá receber relatórios e lembretes por email.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
 
   const handleSignOut = () => {
     Alert.alert(
@@ -76,8 +163,18 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   );
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Configurações</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Conta</Text>
@@ -92,13 +189,13 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
               icon="shield-checkmark-outline"
               title="Privacidade e Segurança"
               subtitle="Configurações de privacidade"
-              onPress={() => handleNotImplemented('Privacidade e Segurança')}
+              onPress={() => navigation.navigate('PrivacySecurity')}
             />
             <SettingItem
               icon="key-outline"
               title="Alterar Senha"
               subtitle="Atualizar sua senha"
-              onPress={() => handleNotImplemented('Alterar Senha')}
+              onPress={() => navigation.navigate('ChangePassword')}
             />
           </View>
         </View>
@@ -113,13 +210,19 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
               subtitle="Receber lembretes de medicamentos"
               onPress={() => {}}
               showArrow={false}
-              rightComponent={<Switch value={true} onValueChange={() => handleNotImplemented('Notificações Push')} />}
+              rightComponent={
+                <Switch 
+                  value={pushNotifications} 
+                  onValueChange={handlePushNotificationToggle}
+                  disabled={loading}
+                />
+              }
             />
             <SettingItem
               icon="alarm-outline"
               title="Lembretes"
               subtitle="Configurar horários de lembrete"
-              onPress={() => handleNotImplemented('Lembretes')}
+              onPress={() => navigation.navigate('Reminders')}
             />
             <SettingItem
               icon="mail-outline"
@@ -127,7 +230,12 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
               subtitle="Receber relatórios por email"
               onPress={() => {}}
               showArrow={false}
-              rightComponent={<Switch value={false} onValueChange={() => handleNotImplemented('Email')} />}
+              rightComponent={
+                <Switch 
+                  value={emailNotifications} 
+                  onValueChange={handleEmailNotificationToggle}
+                />
+              }
             />
           </View>
         </View>
@@ -139,20 +247,15 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
             <SettingItem
               icon="download-outline"
               title="Exportar Dados"
-              subtitle="Baixar seus dados em PDF"
-              onPress={() => handleNotImplemented('Exportar Dados')}
+              subtitle="Baixar seus dados em CSV ou JSON"
+              onPress={() => navigation.navigate('ExportData')}
             />
+
             <SettingItem
-              icon="cloud-upload-outline"
-              title="Backup"
-              subtitle="Fazer backup dos dados"
-              onPress={() => handleNotImplemented('Backup')}
-            />
-            <SettingItem
-              icon="sync-outline"
-              title="Sincronização"
-              subtitle="Sincronizar entre dispositivos"
-              onPress={() => handleNotImplemented('Sincronização')}
+              icon="people-outline"
+              title="Família"
+              subtitle="Compartilhar dados com a família"
+              onPress={() => navigation.navigate('FamilySync')}
             />
           </View>
         </View>
@@ -165,7 +268,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
               icon="color-palette-outline"
               title="Tema"
               subtitle="Claro, escuro ou automático"
-              onPress={() => handleNotImplemented('Tema')}
+              onPress={() => navigation.navigate('Theme')}
             />
             <SettingItem
               icon="language-outline"
@@ -222,8 +325,9 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
           <Text style={styles.footerText}>Personal Medi Care</Text>
           <Text style={styles.footerVersion}>Versão 1.0.0</Text>
         </View>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -231,6 +335,35 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 16,

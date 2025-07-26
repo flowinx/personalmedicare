@@ -183,8 +183,9 @@ async function getCurrentUserId(): Promise<string> {
 // Funções para membros
 export async function initMembersDB(): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
-    console.log('Firebase Members DB inicializado para usuário:', userId);
+    // A inicialização do Members DB não precisa de usuário autenticado
+    // O Firebase já está configurado na importação do módulo
+    console.log('Firebase Members DB pronto para uso');
   } catch (error) {
     console.error('Erro ao inicializar Members DB:', error);
     throw error;
@@ -226,24 +227,33 @@ export async function addMember(member: Omit<Member, 'id' | 'userId' | 'createdA
 
 export async function getAllMembers(): Promise<Member[]> {
   try {
+    console.log('[Firebase] getAllMembers: Iniciando busca de membros...');
     const userId = await getCurrentUserId();
+    console.log('[Firebase] getAllMembers: UserId:', userId);
+    
     const membersRef = collection(db, 'members');
     const q = query(membersRef, where('userId', '==', userId), orderBy('name'));
+    console.log('[Firebase] getAllMembers: Query criada, executando...');
+    
     const querySnapshot = await getDocs(q);
+    console.log('[Firebase] getAllMembers: QuerySnapshot obtida, docs encontrados:', querySnapshot.size);
 
     const members: Member[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
+      console.log('[Firebase] getAllMembers: Processando doc:', doc.id, data);
       members.push({
+        id: doc.id,
         ...data,
         createdAt: data.createdAt.toDate(),
         updatedAt: data.updatedAt.toDate()
       } as Member);
     });
 
+    console.log('[Firebase] getAllMembers: Membros processados:', members.length, members);
     return members;
   } catch (error) {
-    console.error('Erro ao buscar membros:', error);
+    console.error('[Firebase] Erro ao buscar membros:', error);
     throw error;
   }
 }
@@ -298,26 +308,42 @@ export async function deleteMember(id: string): Promise<void> {
 // Funções para perfil
 export async function initProfileDB(): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
-    const profileRef = doc(db, 'profiles', userId);
+    // A inicialização do Profile DB não precisa de usuário autenticado
+    // O perfil será criado automaticamente quando o usuário fizer login
+    console.log('Firebase Profile DB pronto para uso');
+  } catch (error) {
+    console.error('Erro ao inicializar Profile DB:', error);
+    throw error;
+  }
+}
+
+// Função para inicializar perfil do usuário após login
+export async function initializeUserProfile(user: User): Promise<void> {
+  try {
+    console.log('[Firebase] Inicializando perfil para usuário:', user.uid);
+    
+    const profileRef = doc(db, 'profiles', user.uid);
     const profileSnap = await getDoc(profileRef);
 
     if (!profileSnap.exists()) {
+      console.log('[Firebase] Perfil não existe, criando perfil padrão...');
       const defaultProfile: UserProfile = {
-        id: userId,
-        name: 'Nome do Usuário',
-        email: 'usuario@email.com',
-        avatar_uri: null,
-        userId,
+        id: user.uid,
+        name: user.displayName || 'Nome do Usuário',
+        email: user.email || 'usuario@email.com',
+        avatar_uri: user.photoURL || null,
+        userId: user.uid,
         createdAt: new Date(),
         updatedAt: new Date()
       };
+      
       await setDoc(profileRef, defaultProfile);
+      console.log('[Firebase] Perfil padrão criado com sucesso');
+    } else {
+      console.log('[Firebase] Perfil já existe para o usuário');
     }
-
-    console.log('Firebase Profile DB inicializado para usuário:', userId);
   } catch (error) {
-    console.error('Erro ao inicializar Profile DB:', error);
+    console.error('[Firebase] Erro ao inicializar perfil do usuário:', error);
     throw error;
   }
 }
@@ -366,8 +392,26 @@ export async function updateProfile(data: { name: string; email: string; avatar_
 // Funções para tratamentos
 export async function addTreatment(treatment: Omit<Treatment, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<string> {
   try {
+    console.log('[Firebase] addTreatment: Iniciando adição de tratamento...');
+    console.log('[Firebase] addTreatment: Dados recebidos:', treatment);
+    
+    // Verificar se o Firebase está inicializado
+    if (!db) {
+      throw new Error('Firebase Firestore não está inicializado');
+    }
+    
+    if (!auth) {
+      throw new Error('Firebase Auth não está inicializado');
+    }
+    
+    console.log('[Firebase] addTreatment: Obtendo userId...');
     const userId = await getCurrentUserId();
+    console.log('[Firebase] addTreatment: UserId obtido:', userId);
+    
+    console.log('[Firebase] addTreatment: Criando referência do documento...');
     const treatmentRef = doc(collection(db, 'treatments'));
+    console.log('[Firebase] addTreatment: Referência criada:', treatmentRef.id);
+    
     const newTreatment: Treatment = {
       ...treatment,
       id: treatmentRef.id,
@@ -375,12 +419,22 @@ export async function addTreatment(treatment: Omit<Treatment, 'id' | 'userId' | 
       createdAt: new Date(),
       updatedAt: new Date()
     };
-
+    
+    console.log('[Firebase] addTreatment: Dados do novo tratamento:', newTreatment);
+    console.log('[Firebase] addTreatment: Salvando no Firestore...');
+    
     await setDoc(treatmentRef, newTreatment);
-    console.log('Tratamento adicionado com sucesso:', newTreatment);
+    console.log('[Firebase] addTreatment: Tratamento salvo com sucesso:', newTreatment);
+    
     return treatmentRef.id;
-  } catch (error) {
-    console.error('Erro ao adicionar tratamento:', error);
+  } catch (error: any) {
+    console.error('[Firebase] addTreatment: Erro ao adicionar tratamento:', error);
+    console.error('[Firebase] addTreatment: Detalhes do erro:', {
+      message: error?.message,
+      code: error?.code,
+      name: error?.name,
+      stack: error?.stack
+    });
     throw error;
   }
 }
