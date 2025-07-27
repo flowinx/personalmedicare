@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tutorial Personal MediCare - Guia Completo de Uso</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding: 40px 0;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .section {
+            margin-bottom: 50px;
+        }
+
+        .section h2 {
+            color: #b081ee;
+            font-size: 2rem;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #b081ee;
+            padding-bottom: 10px;
+        }
+
+        .section h3 {
+            color: #333;
+            font-size: 1.5rem;
+            margin: 30px 0 15px 0;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 30px 0;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 5px solid #b081ee;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(176, 129, 238, 0.2);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            color: #b081ee;
+        }
+
+        .feature-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .feature-description {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .step-list {
+            counter-reset: step-counter;
+        }
+
+        .step {
+            counter-increment: step-counter;
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            position: relative;
+            padding-left: 70px;
+        }
+
+        .step::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            background: #b081ee;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .step h4 {
+            color: #b081ee;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        .screenshot {
+            background: #f0f0f0;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            color: #666;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .warning h4 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .tip {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .tip h4 {
+            color: #0c5460;
+            margin-bottom: 10px;
+        }
+
+        .tech-specs {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .tech-specs h4 {
+            color: #495057;
+            margin-bottom: 15px;
+        }
+
+        .tech-specs ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .tech-specs li {
+            padding: 5px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .tech-specs li:last-child {
+            border-bottom: none;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            padding: 40px 0;
+            margin-top: 50px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 Personal MediCare</h1>
+            <p>Guia Completo de Uso - Controle Inteligente de Medicamentos Familiares</p>
+        </div>
+
+        <div class="content">
+            <!-- Introdução -->
+            <div class="section">
+                <h2>🏠 Bem-vindo ao Personal MediCare</h2>
+                <p>O Personal MediCare é um aplicativo móvel desenvolvido para ajudar famílias a gerenciar medicamentos, tratamentos e cuidados de saúde de forma organizada e inteligente. Com recursos avançados de IA e uma interface intuitiva, o app torna o controle medicamentoso mais seguro e eficiente.</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">👨‍👩‍👧‍👦</div>
+                        <div class="feature-title">Gestão Familiar</div>
+                        <div class="feature-description">Gerencie medicamentos de toda a família em um só lugar, com perfis individuais para cada membro.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🤖</div>
+                        <div class="feature-title">IA Médica</div>
+                        <div class="feature-description">Assistente virtual com IA para tirar dúvidas sobre medicamentos e orientações gerais de saúde.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⏰</div>
+                        <div class="feature-title">Lembretes Inteligentes</div>
+                        <div class="feature-description">Sistema de notificações personalizadas para nunca esquecer de tomar os medicamentos.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">💊</div>
+                        <div class="feature-title">Farmacinha Digital</div>
+                        <div class="feature-description">Controle de estoque doméstico com alertas de vencimento e quantidade baixa.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Primeiros Passos -->
+            <div class="section">
+                <h2>🚀 Primeiros Passos</h2>
+                
+                <h3>1. Instalação e Login</h3>
+                <div class="step-list">
+                    <div class="step">
+                        <h4>Baixe o Aplicativo</h4>
+                        <p>Disponível para iOS e Android. Procure por "Personal MediCare" na App Store ou Google Play Store.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Crie sua Conta</h4>
+                        <p>Faça login usando:</p>
+                        <ul>
+                            <li>• Email e senha</li>
+                            <li>• Conta Google</li>
+                            <li>• Apple ID (iOS)</li>
+                        </ul>
+                    </div>
+                    <div class="step">
+                        <h4>Configure seu Perfil</h4>
+                        <p>Adicione suas informações pessoais, foto de perfil e dados de contato de emergência.</p>
+                    </div>
+                </div>
+
+                <div class="screenshot">
+                    📱 Tela de Login<br>
+                    <small>Interface limpa com opções de login social e tradicional</small>
+                </div>
+            </div>
+
+            <!-- Tela Principal -->
+            <div class="section">
+                <h2>🏡 Tela Principal (Home)</h2>
+                <p>A tela principal é o centro de controle do seu dia a dia medicamentoso.</p>
+
+                <h3>Elementos da Tela Principal:</h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">👩‍⚕️</div>
+                        <div class="feature-title">Assistente Virtual</div>
+                        <div class="feature-description">Avatar da assistente médica com indicador pulsante. Clique para abrir o chat com IA.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📅</div>
+                        <div class="feature-title">Agenda do Dia</div>
+                        <div class="feature-description">Lista de medicamentos programados para hoje, com horários e status.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔔</div>
+                        <div class="feature-title">Notificações</div>
+                        <div class="feature-description">Sino de notificações com contador de medicamentos em atraso.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">👥</div>
+                        <div class="feature-title">Membros da Família</div>
+                        <div class="feature-description">Cards coloridos com todos os membros cadastrados na família.</div>
+                    </div>
+                </div>
+
+                <div class="tip">
+                    <h4>💡 Dica Importante</h4>
+                    <p>O balãozinho pulsante próximo ao avatar indica que você pode conversar com a assistente virtual. Ela pode ajudar com dúvidas sobre medicamentos e uso do app!</p>
+                </div>
+
+                <div class="screenshot">
+                    📱 Tela Principal<br>
+                    <small>Dashboard com resumo diário, assistente IA e acesso rápido aos membros</small>
+                </div>
+            </div>
+
+            <!-- Gestão de Membros -->
+            <div class="section">
+                <h2>👨‍👩‍👧‍👦 Gestão de Membros da Família</h2>
+                
+                <h3>Adicionando um Novo Membro</h3>
+                <div class="step-list">
+                    <div class="step">
+                        <h4>Acesse a Seção de Membros</h4>
+                        <p>Na tela principal, role até a seção "Membros da Família" e toque no botão "+" ou "Adicionar Membro".</p>
+                    </div>
+                    <div class="step">
+                        <h4>Preencha as Informações</h4>
+                        <p>Complete os dados:</p>
+                        <ul>
+                            <li>• Nome completo</li>
+                            <li>• Relação familiar (pai, mãe, filho, etc.)</li>
+                            <li>• Data de nascimento</li>
+                            <li>• Tipo sanguíneo (opcional)</li>
+                            <li>• Foto de perfil</li>
+                            <li>• Telefone de emergência</li>
+                            <li>• Condições médicas especiais</li>
+                        </ul>
+                    </div>
+                    <div class="step">
+                        <h4>Salve o Perfil</h4>
+                        <p>Confirme as informações e salve. O membro aparecerá na tela principal.</p>
+                    </div>
+                </div>
+
+                <h3>Visualizando Detalhes do Membro</h3>
+                <p>Toque em qualquer card de membro para ver:</p>
+                <ul>
+                    <li>• Informações pessoais completas</li>
+                    <li>• Tratamentos ativos</li>
+                    <li>• Histórico de medicamentos</li>
+                    <li>• Documentos médicos anexados</li>
+                    <li>• Relatórios de aderência</li>
+                </ul>
+
+                <div class="screenshot">
+                    📱 Perfil do Membro<br>
+                    <small>Tela detalhada com informações, tratamentos e histórico médico</small>
+                </div>
+            </div>
+
+            <!-- Tratamentos -->
+            <div class="section">
+                <h2>💊 Gestão de Tratamentos</h2>
+                
+                <h3>Criando um Novo Tratamento</h3>
+                <div class="step-list">
+                    <div class="step">
+                        <h4>Acesse Tratamentos</h4>
+                        <p>No menu principal ou no perfil do membro, toque em "Adicionar Tratamento".</p>
+                    </div>
+                    <div class="step">
+                        <h4>Informações do Medicamento</h4>
+                        <p>Preencha:</p>
+                        <ul>
+                            <li>• Nome do medicamento</li>
+                            <li>• Dosagem (ex: 500mg, 2 comprimidos)</li>
+                            <li>• Membro da família</li>
+                        </ul>
+                    </div>
+                    <div class="step">
+                        <h4>Configurar Frequência</h4>
+                        <p>Defina:</p>
+                        <ul>
+                            <li>• Intervalo (a cada X horas/dias)</li>
+                            <li>• Horário de início</li>
+                            <li>• Duração do tratamento</li>
+                        </ul>
+                    </div>
+                    <div class="step">
+                        <h4>Observações Médicas</h4>
+                        <p>Adicione notas importantes como "tomar com alimentos" ou "evitar exposição solar".</p>
+                    </div>
+                </div>
+
+                <h3>Status dos Tratamentos</h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🟢</div>
+                        <div class="feature-title">Ativo</div>
+                        <div class="feature-description">Tratamento em andamento com lembretes ativos.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🟡</div>
+                        <div class="feature-title">Pausado</div>
+                        <div class="feature-description">Temporariamente suspenso (por orientação médica).</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚪</div>
+                        <div class="feature-title">Finalizado</div>
+                        <div class="feature-description">Tratamento concluído ou interrompido.</div>
+                    </div>
+                </div>
+
+                <div class="screenshot">
+                    📱 Lista de Tratamentos<br>
+                    <small>Visão geral de todos os tratamentos com status e informações</small>
+                </div>
+            </div>
+
+            <!-- Farmacinha Digital -->
+            <div class="section">
+                <h2>🏥 Farmacinha Digital</h2>
+                <p>Controle seu estoque doméstico de medicamentos com inteligência.</p>
+
+                <h3>Adicionando Medicamentos ao Estoque</h3>
+                <div class="step-list">
+                    <div class="step">
+                        <h4>Acesse a Farmacinha</h4>
+                        <p>No menu principal, toque em "Farmacinha" ou "Estoque".</p>
+                    </div>
+                    <div class="step">
+                        <h4>Cadastre o Medicamento</h4>
+                        <p>Informe:</p>
+                        <ul>
+                            <li>• Nome do medicamento</li>
+                            <li>• Categoria (analgésico, antibiótico, etc.)</li>
+                            <li>• Quantidade atual</li>
+                            <li>• Unidade (comprimidos, ml, etc.)</li>
+                            <li>• Data de vencimento</li>
+                            <li>• Localização (gaveta, armário, etc.)</li>
+                        </ul>
+                    </div>
+                    <div class="step">
+                        <h4>Configure Alertas</h4>
+                        <p>O sistema automaticamente alertará sobre:</p>
+                        <ul>
+                            <li>• Medicamentos próximos ao vencimento</li>
+                            <li>• Estoque baixo</li>
+                            <li>• Necessidade de reposição</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>Recursos Inteligentes</h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🔍</div>
+                        <div class="feature-title">Busca Avançada</div>
+                        <div class="feature-description">Encontre medicamentos por nome, categoria ou localização.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <div class="feature-title">Relatórios de Estoque</div>
+                        <div class="feature-description">Visualize estatísticas de consumo e necessidades de reposição.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🤖</div>
+                        <div class="feature-title">IA para Medicamentos</div>
+                        <div class="feature-description">Consulte informações detalhadas sobre qualquer medicamento.</div>
+                    </div>
+                </div>
+
+                <div class="screenshot">
+                    📱 Farmacinha Digital<br>
+                    <small>Interface de estoque com categorias, alertas e busca inteligente</small>
+                </div>
+            </div>
+
+            <!-- Assistente IA -->
+            <div class="section">
+                <h2>🤖 Assistente Médica Virtual</h2>
+                <p>Sua companheira inteligente para dúvidas sobre medicamentos e saúde.</p>
+
+                <h3>Como Usar o Chat com IA</h3>
+                <div class="step-list">
+                    <div class="step">
+                        <h4>Acesse o Chat</h4>
+                        <p>Na tela principal, toque no avatar da assistente médica (com o balãozinho pulsante).</p>
+                    </div>
+                    <div class="step">
+                        <h4>Faça suas Perguntas</h4>
+                        <p>Digite suas dúvidas sobre:</p>
+                        <ul>
+                            <li>• Informações sobre medicamentos</li>
+                            <li>• Efeitos colaterais</li>
+                            <li>• Interações medicamentosas</li>
+                            <li>• Como usar o aplicativo</li>
+                            <li>• Orientações gerais de saúde</li>
+                        </ul>
+                    </div>
+                    <div class="step">
+                        <h4>Receba Orientações</h4>
+                        <p>A IA fornecerá informações baseadas em conhecimento médico, sempre lembrando da importância de consultar um profissional.</p>
+                    </div>
+                </div>
+
+                <div class="warning">
+                    <h4>⚠️ Importante</h4>
+                    <p>A assistente virtual é uma ferramenta informativa e NÃO substitui consultas médicas. Sempre consulte um profissional de saúde para decisões sobre medicamentos e tratamentos.</p>
+                </div>
+
+                <h3>Exemplos de Perguntas</h3>
+                <ul>
+                    <li>• "Para que serve o paracetamol?"</li>
+                    <li>• "Posso tomar ibuprofeno com estômago vazio?"</li>
+                    <li>• "Como adicionar um novo membro no app?"</li>
+                    <li>• "Quais são os efeitos colaterais da amoxicilina?"</li>
+                    <li>• "Como configurar lembretes de medicamento?"</li>
+                </ul>
+
+                <div class="screenshot">
+                    📱 Chat com IA<br>
+                    <small>Interface de conversa com a assistente médica virtual</small>
+                </div>
+            </div>
+
+            <!-- Notificações -->
+            <div class="section">
+                <h2>🔔 Sistema de Notificações</h2>
+                
+                <h3>Configurando Lembretes</h3>
+                <div class="step-list">
+                    <div class="step">
+                        <h4>Acesse Configurações</h4>
+                        <p>No menu principal, vá em "Configurações" > "Notificações".</p>
+                    </div>
+                    <div class="step">
+                        <h4>Ative as Notificações</h4>
+                        <p>Permita que o app envie notificações push no seu dispositivo.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Personalize os Alertas</h4>
+                        <p>Configure:</p>
+                        <ul>
+                            <li>• Antecedência dos lembretes</li>
+                            <li>• Som e vibração</li>
+                            <li>• Frequência de repetição</li>
+                            <li>• Horários de silêncio</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>Tipos de Notificações</h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">⏰</div>
+                        <div class="feature-title">Hora do Medicamento</div>
+                        <div class="feature-description">Lembrete no horário exato de tomar o medicamento.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚠️</div>
+                        <div class="feature-title">Medicamento Atrasado</div>
+                        <div class="feature-description">Alerta quando um medicamento não foi marcado como tomado.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📅</div>
+                        <div class="feature-title">Vencimento Próximo</div>
+                        <div class="feature-description">Aviso sobre medicamentos próximos ao vencimento.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📦</div>
+                        <div class="feature-title">Estoque Baixo</div>
+                        <div class="feature-description">Alerta quando a quantidade de um medicamento está acabando.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Relatórios -->
+            <div class="section">
+                <h2>📊 Relatórios e Estatísticas</h2>
+                
+                <h3>Acompanhamento de Aderência</h3>
+                <p>Visualize o cumprimento dos tratamentos através de:</p>
+                <ul>
+                    <li>• Gráficos de aderência por membro</li>
+                    <li>• Percentual de medicamentos tomados no prazo</li>
+                    <li>• Histórico de medicamentos perdidos</li>
+                    <li>• Tendências de melhoria ou piora</li>
+                </ul>
+
+                <h3>Relatórios Disponíveis</h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">📈</div>
+                        <div class="feature-title">Relatório Semanal</div>
+                        <div class="feature-description">Resumo da semana com estatísticas de cada membro da família.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📋</div>
+                        <div class="feature-title">Relatório Médico</div>
+                        <div class="feature-description">Documento completo para levar às consultas médicas.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">💊</div>
+                        <div class="feature-title">Consumo de Medicamentos</div>
+                        <div class="feature-description">Análise detalhada do uso de cada medicamento.</div>
+                    </div>
+                </div>
+
+                <div class="screenshot">
+                    📱 Tela de Relatórios<br>
+                    <small>Gráficos e estatísticas de aderência aos tratamentos</small>
+                </div>
+            </div>
+
+            <!-- Configurações -->
+            <div class="section">
+                <h2>⚙️ Configurações do Aplicativo</h2>
+                
+                <h3>Configurações Principais</h3>
+                <div class="step-list">
+                    <div class="step">
+                        <h4>Perfil do Usuário</h4>
+                        <p>Edite suas informações pessoais, foto e dados de contato.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Notificações</h4>
+                        <p>Configure lembretes, sons e horários de silêncio.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Privacidade e Segurança</h4>
+                        <p>Gerencie permissões, backup de dados e autenticação.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Tema e Idioma</h4>
+                        <p>Personalize a aparência e configure o idioma preferido.</p>
+                    </div>
+                </div>
+
+                <div class="tip">
+                    <h4>💡 Dica de Segurança</h4>
+                    <p>Mantenha sempre o backup automático ativado para não perder seus dados importantes. O app sincroniza com a nuvem de forma segura e criptografada.</p>
+                </div>
+            </div>
+
+            <!-- Dicas Avançadas -->
+            <div class="section">
+                <h2>🎯 Dicas Avançadas de Uso</h2>
+                
+                <h3>Maximizando a Eficiência</h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🔄</div>
+                        <div class="feature-title">Sincronização Familiar</div>
+                        <div class="feature-description">Compartilhe o acesso com outros cuidadores da família para colaboração.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📱</div>
+                        <div class="feature-title">Widget na Tela Inicial</div>
+                        <div class="feature-description">Adicione o widget do app na tela inicial para acesso rápido aos próximos medicamentos.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🎨</div>
+                        <div class="feature-title">Cores Personalizadas</div>
+                        <div class="feature-description">Use cores diferentes para cada membro da família para identificação rápida.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📸</div>
+                        <div class="feature-title">Fotos dos Medicamentos</div>
+                        <div class="feature-description">Tire fotos das caixas para facilitar a identificação visual.</div>
+                    </div>
+                </div>
+
+                <h3>Integração com Outros Apps</h3>
+                <ul>
+                    <li>• Calendário do dispositivo para lembretes</li>
+                    <li>• App de saúde nativo (Apple Health, Google Fit)</li>
+                    <li>• Assistentes virtuais (Siri, Google Assistant)</li>
+                    <li>• Apps de farmácias para compras online</li>
+                </ul>
+            </div>
+
+            <!-- Solução de Problemas -->
+            <div class="section">
+                <h2>🔧 Solução de Problemas</h2>
+                
+                <h3>Problemas Comuns</h3>
+                <div class="step-list">
+                    <div class="step">
+                        <h4>Notificações não chegam</h4>
+                        <p>Verifique as permissões do app nas configurações do dispositivo e certifique-se de que o modo "Não perturbe" não está ativo.</p>
+                    </div>
+                    <div class="step">
+                        <h4>App está lento</h4>
+                        <p>Feche outros aplicativos, reinicie o dispositivo ou limpe o cache do app nas configurações.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Dados não sincronizam</h4>
+                        <p>Verifique sua conexão com a internet e faça logout/login novamente.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Esqueci minha senha</h4>
+                        <p>Use a opção "Esqueci minha senha" na tela de login ou entre em contato com o suporte.</p>
+                    </div>
+                </div>
+
+                <div class="warning">
+                    <h4>⚠️ Em caso de emergência</h4>
+                    <p>O Personal MediCare é uma ferramenta de apoio. Em situações de emergência médica, sempre procure atendimento médico imediato ou ligue para o SAMU (192).</p>
+                </div>
+            </div>
+
+            <!-- Especificações Técnicas -->
+            <div class="section">
+                <h2>📋 Especificações Técnicas</h2>
+                
+                <div class="tech-specs">
+                    <h4>Requisitos do Sistema</h4>
+                    <ul>
+                        <li><strong>iOS:</strong> Versão 13.0 ou superior</li>
+                        <li><strong>Android:</strong> Versão 8.0 (API 26) ou superior</li>
+                        <li><strong>Espaço:</strong> 150MB de armazenamento livre</li>
+                        <li><strong>Internet:</strong> Conexão necessária para sincronização</li>
+                        <li><strong>Permissões:</strong> Notificações, câmera, armazenamento</li>
+                    </ul>
+                </div>
+
+                <div class="tech-specs">
+                    <h4>Tecnologias Utilizadas</h4>
+                    <ul>
+                        <li><strong>Framework:</strong> React Native com Expo</li>
+                        <li><strong>Backend:</strong> Firebase (Firestore, Auth, Storage)</li>
+                        <li><strong>IA:</strong> Google Gemini AI</li>
+                        <li><strong>Notificações:</strong> Expo Notifications</li>
+                        <li><strong>Autenticação:</strong> Firebase Auth (Email, Google, Apple)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Suporte -->
+            <div class="section">
+                <h2>📞 Suporte e Contato</h2>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">💬</div>
+                        <div class="feature-title">Chat no App</div>
+                        <div class="feature-description">Use a assistente virtual para dúvidas sobre o uso do aplicativo.</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📧</div>
+                        <div class="feature-title">Email</div>
+                        <div class="feature-description">suporte@personalmedicare.com.br</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🌐</div>
+                        <div class="feature-title">Site</div>
+                        <div class="feature-description">www.personalmedicare.com.br</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📱</div>
+                        <div class="feature-title">Redes Sociais</div>
+                        <div class="feature-description">@PersonalMediCare no Instagram e Facebook</div>
+                    </div>
+                </div>
+
+                <div class="tip">
+                    <h4>💡 Antes de entrar em contato</h4>
+                    <p>Consulte este tutorial e as perguntas frequentes no app. A maioria das dúvidas pode ser resolvida rapidamente!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>© 2024 Personal MediCare - Cuidando da saúde da sua família com tecnologia e carinho</p>
+            <p>Versão do Tutorial: 1.0 | Última atualização: Janeiro 2024</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -274,6 +274,204 @@ Forneça uma análise completa, profissional e informativa que agregue real valo
   }
 }
 
+export interface MedicationCompleteInfo {
+  categoria: string;
+  unidade: string;
+  descricao: string;
+  indicacoes: string;
+  contraindicacoes: string;
+  posologia: string;
+  cuidados: string;
+}
+
+export async function getMedicationCompleteInfo(medicationName: string): Promise<MedicationCompleteInfo> {
+  if (!medicationName.trim()) {
+    throw new Error('Nome do medicamento não pode estar vazio');
+  }
+
+  try {
+    const prompt = `Você é um farmacêutico especialista! Analise o medicamento "${medicationName}" e forneça as informações EXATAS no formato JSON abaixo:
+
+{
+  "categoria": "[Uma das categorias: Analgésico, Antibiótico, Anti-inflamatório, Antialérgico, Vitamina, Suplemento, Cardiovascular, Digestivo, Respiratório, Dermatológico, Oftálmico, Outros]",
+  "unidade": "[Uma das unidades: comprimidos, cápsulas, ml, mg, g, gotas, sachês, ampolas, frascos, unidades]",
+  "descricao": "[Descrição simples do que é o medicamento em 1-2 frases]",
+  "indicacoes": "[Para que serve, de forma simples e clara]",
+  "contraindicacoes": "[Principais contraindicações de forma clara]",
+  "posologia": "[Como tomar de forma simplificada]",
+  "cuidados": "[Cuidados importantes de forma simples]"
+}
+
+IMPORTANTE:
+✅ Responda APENAS o JSON válido, sem texto adicional
+✅ Use linguagem simples e acessível
+✅ Seja preciso na categoria e unidade
+✅ NÃO use formatação markdown
+✅ Mantenha as informações concisas mas completas
+
+Se não conhecer o medicamento, use categoria "Outros" e unidade "unidades" com informações genéricas.`;
+
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            {
+              text: prompt
+            }
+          ]
+        }
+      ]
+    };
+
+    const response = await fetch(`${GeminiConfig.BASE_URL}?key=${GeminiConfig.API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro na requisição: ${response.status}`);
+    }
+
+    const data: GeminiResponse = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error.message || 'Erro ao buscar informações do medicamento');
+    }
+
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Nenhuma informação encontrada');
+    }
+
+    let responseText = data.candidates[0].content.parts[0].text.trim();
+    
+    // Limpar possíveis caracteres de formatação markdown
+    responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+    responseText = responseText.replace(/^[\s\S]*?({[\s\S]*})[\s\S]*$/, '$1');
+    
+    console.log('[Gemini] Resposta limpa:', responseText);
+    
+    // Tentar fazer parse do JSON
+    try {
+      const medicationInfo = JSON.parse(responseText);
+      
+      // Validar se tem todas as propriedades necessárias
+      if (!medicationInfo.categoria || !medicationInfo.unidade || !medicationInfo.descricao) {
+        throw new Error('Resposta incompleta da IA');
+      }
+      
+      return medicationInfo;
+    } catch (parseError) {
+      console.error('[Gemini] Erro ao fazer parse do JSON:', parseError);
+      console.error('[Gemini] Resposta original recebida:', data.candidates[0].content.parts[0].text);
+      console.error('[Gemini] Resposta limpa:', responseText);
+      
+      // Fallback com informações padrão
+      return {
+        categoria: 'Outros',
+        unidade: 'unidades',
+        descricao: `Medicamento ${medicationName}`,
+        indicacoes: 'Consulte seu médico para informações sobre indicações.',
+        contraindicacoes: 'Consulte seu médico para informações sobre contraindicações.',
+        posologia: 'Siga as orientações do seu médico.',
+        cuidados: 'Mantenha em local seco e arejado, longe do alcance de crianças.'
+      };
+    }
+
+  } catch (error) {
+    console.error('[Gemini] Erro ao buscar informações completas do medicamento:', error);
+    
+    // Fallback para caso a API não esteja disponível
+    return {
+      categoria: 'Outros',
+      unidade: 'unidades',
+      descricao: `Medicamento ${medicationName}`,
+      indicacoes: 'Consulte seu médico para informações sobre indicações.',
+      contraindicacoes: 'Consulte seu médico para informações sobre contraindicações.',
+      posologia: 'Siga as orientações do seu médico.',
+      cuidados: 'Mantenha em local seco e arejado, longe do alcance de crianças.'
+    };
+  }
+}
+
+export async function extractActiveIngredient(medicationName: string): Promise<string> {
+  if (!medicationName.trim()) {
+    throw new Error('Nome do medicamento não pode estar vazio');
+  }
+
+  try {
+    const prompt = `Você é um farmacêutico especialista! Analise o medicamento "${medicationName}" e extraia APENAS o princípio ativo (substância ativa) principal.
+
+IMPORTANTE:
+✅ Responda APENAS com o nome do princípio ativo, sem texto adicional
+✅ Use o nome científico/genérico da substância ativa
+✅ Se houver múltiplos princípios ativos, liste o principal
+✅ NÃO inclua dosagem, marca comercial ou outras informações
+✅ Se não souber, responda apenas com a primeira palavra do medicamento
+
+Exemplos:
+- "Dipirona 500mg" → "Dipirona"
+- "Tylenol 750mg" → "Paracetamol"
+- "Aspirina" → "Ácido Acetilsalicílico"
+- "Alenia 400" → "Budesonida + Formoterol"
+
+Medicamento: ${medicationName}
+Princípio ativo:`;
+
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            {
+              text: prompt
+            }
+          ]
+        }
+      ]
+    };
+
+    const response = await fetch(`${GeminiConfig.BASE_URL}?key=${GeminiConfig.API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro na requisição: ${response.status}`);
+    }
+
+    const data: GeminiResponse = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error.message || 'Erro ao extrair princípio ativo');
+    }
+
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Nenhuma informação encontrada');
+    }
+
+    let activeIngredient = data.candidates[0].content.parts[0].text.trim();
+    
+    // Limpar possíveis formatações
+    activeIngredient = activeIngredient.replace(/[*#`-]/g, '').trim();
+    
+    // Se a resposta for muito longa, pegar apenas a primeira linha
+    activeIngredient = activeIngredient.split('\n')[0].trim();
+    
+    return activeIngredient || medicationName.split(' ')[0];
+
+  } catch (error) {
+    console.error('[Gemini] Erro ao extrair princípio ativo:', error);
+    
+    // Fallback: usar a primeira palavra do nome
+    return medicationName.split(' ')[0] || '';
+  }
+}
+
 export async function askGeminiChat(userMessage: string): Promise<string> {
   if (!userMessage.trim()) {
     throw new Error('Mensagem não pode estar vazia');
@@ -341,4 +539,4 @@ Responda de forma calorosa e acessível, usando texto simples e emojis com moder
     console.error('[Gemini] Erro no chat:', error);
     throw new Error('Erro ao processar sua pergunta. Tente novamente.');
   }
-} 
+}

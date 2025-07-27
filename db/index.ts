@@ -2,23 +2,29 @@
 // Importa as funções específicas
 import {
     addMember,
+    addMedication,
     addTreatment,
     clearAllData,
     deleteMember,
+    deleteMedication,
     deleteTreatment,
     Document,
     getAllMembers,
+    getAllMedications,
     getAllTreatments,
     getDocumentsByMemberId,
+    getMedicationById,
     getMemberById,
     getProfile,
     getTreatmentById,
     getTreatmentsByMemberId,
     initMembersDB,
     initProfileDB,
+    Medication,
     Member,
     saveDocument,
     Treatment,
+    updateMedication,
     updateMember,
     updateProfile,
     updateTreatment,
@@ -26,7 +32,7 @@ import {
 } from '../services/firebase';
 
 export {
-    addMember, addTreatment, deleteMember, deleteTreatment, Document, getAllMembers, getAllTreatments, getDocumentsByMemberId, getMemberById, getProfile, getTreatmentById, getTreatmentsByMemberId, Member, saveDocument, Treatment, updateMember, updateProfile, updateTreatment, UserProfile
+    addMember, addMedication, addTreatment, deleteMember, deleteMedication, deleteTreatment, Document, getAllMembers, getAllMedications, getAllTreatments, getDocumentsByMemberId, getMedicationById, getMemberById, getProfile, getTreatmentById, getTreatmentsByMemberId, Medication, Member, saveDocument, Treatment, updateMedication, updateMember, updateProfile, updateTreatment, UserProfile
 };
 
 // Função de inicialização que usa o Firebase

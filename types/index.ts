@@ -55,6 +55,22 @@ export interface Document {
   updatedAt: Date;
 }
 
+export interface Medication {
+  id: string;
+  nome: string;
+  categoria: string;
+  quantidade: string;
+  unidade: string;
+  dataVencimento: string;
+  localizacao: string;
+  principioAtivo?: string;
+  observacoes?: string;
+  adicionadoEm: string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Tipos para uso nas telas (com dados combinados)
 export interface TreatmentWithMember extends Treatment {
   member_name: string;

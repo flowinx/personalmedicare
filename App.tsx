@@ -40,6 +40,7 @@ import ReportsScreen from './screens/ReportsScreen';
 import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import TermsOfServiceScreen from './screens/TermsOfServiceScreen';
 import DataCollectionScreen from './screens/DataCollectionScreen';
+import FarmacinhaScreen from './screens/FarmacinhaScreen';
 
 type AuthStackParamList = {
   Login: undefined;
@@ -267,6 +268,17 @@ function MainDrawer() {
           drawerLabel: 'Tratamentos',
           drawerIcon: ({ color }) => (
             <Ionicons name="medical-outline" size={24} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="Farmacinha"
+        component={FarmacinhaScreen}
+        options={{
+          title: 'Personal MediCare',
+          drawerLabel: 'Farmacinha',
+          drawerIcon: ({ color }) => (
+            <Ionicons name="medical" size={24} color={color} />
           ),
         }}
       />

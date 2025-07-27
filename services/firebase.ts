@@ -101,6 +101,22 @@ export interface Document {
   updatedAt: Date;
 }
 
+export interface Medication {
+  id: string;
+  nome: string;
+  categoria: string;
+  quantidade: string;
+  unidade: string;
+  dataVencimento: string;
+  localizacao: string;
+  principioAtivo?: string;
+  observacoes?: string;
+  adicionadoEm: string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Funções de autenticação
 export async function signUpWithEmail(email: string, password: string, name: string): Promise<User> {
   try {
@@ -588,6 +604,121 @@ export async function getDocumentsByMemberId(memberId: string): Promise<Document
   }
 }
 
+// Funções para medicamentos
+export async function addMedication(medication: Omit<Medication, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  try {
+    console.log('[Firebase] addMedication: Iniciando adição de medicamento...');
+    console.log('[Firebase] addMedication: Dados recebidos:', medication);
+    
+    const userId = await getCurrentUserId();
+    console.log('[Firebase] addMedication: UserId obtido:', userId);
+    
+    const medicationRef = doc(collection(db, 'medications'));
+    const cleanedMedication = removeUndefinedFields(medication);
+    const newMedication: Medication = {
+      ...cleanedMedication,
+      id: medicationRef.id,
+      userId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    console.log('[Firebase] addMedication: Salvando no Firestore...');
+    await setDoc(medicationRef, newMedication);
+    console.log('[Firebase] addMedication: Medicamento salvo com sucesso:', newMedication);
+    
+    return medicationRef.id;
+  } catch (error: any) {
+    console.error('[Firebase] addMedication: Erro ao adicionar medicamento:', error);
+    throw error;
+  }
+}
+
+export async function getAllMedications(): Promise<Medication[]> {
+  try {
+    console.log('[Firebase] getAllMedications: Iniciando busca de medicamentos...');
+    const userId = await getCurrentUserId();
+    console.log('[Firebase] getAllMedications: UserId:', userId);
+    
+    const medicationsRef = collection(db, 'medications');
+    // Removendo orderBy para evitar necessidade de índice composto
+    const q = query(medicationsRef, where('userId', '==', userId));
+    console.log('[Firebase] getAllMedications: Query criada, executando...');
+    
+    const querySnapshot = await getDocs(q);
+    console.log('[Firebase] getAllMedications: QuerySnapshot obtida, docs encontrados:', querySnapshot.size);
+
+    const medications: Medication[] = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      console.log('[Firebase] getAllMedications: Processando doc:', doc.id, data);
+      medications.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt.toDate(),
+        updatedAt: data.updatedAt.toDate()
+      } as Medication);
+    });
+
+    // Ordenando no lado do cliente por nome
+    medications.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+
+    console.log('[Firebase] getAllMedications: Medicamentos processados e ordenados:', medications.length, medications);
+    return medications;
+  } catch (error) {
+    console.error('[Firebase] Erro ao buscar medicamentos:', error);
+    throw error;
+  }
+}
+
+export async function getMedicationById(id: string): Promise<Medication | null> {
+  try {
+    const medicationRef = doc(db, 'medications', id);
+    const medicationSnap = await getDoc(medicationRef);
+
+    if (medicationSnap.exists()) {
+      const data = medicationSnap.data();
+      return {
+        ...data,
+        createdAt: data.createdAt.toDate(),
+        updatedAt: data.updatedAt.toDate()
+      } as Medication;
+    }
+    return null;
+  } catch (error) {
+    console.error('Erro ao buscar medicamento por ID:', error);
+    throw error;
+  }
+}
+
+export async function updateMedication(id: string, medication: Omit<Medication, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<void> {
+  try {
+    const medicationRef = doc(db, 'medications', id);
+    const cleanedMedication = removeUndefinedFields(medication);
+    await updateDoc(medicationRef, {
+      ...cleanedMedication,
+      updatedAt: new Date()
+    });
+    console.log('Medicamento atualizado com sucesso:', id);
+  } catch (error) {
+    console.error('Erro ao atualizar medicamento:', error);
+    throw error;
+  }
+}
+
+export async function deleteMedication(id: string): Promise<void> {
+  try {
+    console.log('Firebase: deleteMedication called for ID:', id);
+    const medicationRef = doc(db, 'medications', id);
+    console.log('Firebase: Deleting medication document...');
+    await deleteDoc(medicationRef);
+    console.log('Firebase: Medication document deleted successfully:', id);
+  } catch (error) {
+    console.error('Firebase: Error deleting medication:', error);
+    throw error;
+  }
+}
+
 // Função para limpar todos os dados (útil para debug)
 export async function clearAllData(): Promise<void> {
   try {
@@ -615,6 +746,14 @@ export async function clearAllData(): Promise<void> {
     const documentsQuery = query(documentsRef, where('userId', '==', userId));
     const documentsSnapshot = await getDocs(documentsQuery);
     documentsSnapshot.forEach(async (doc) => {
+      await deleteDoc(doc.ref);
+    });
+
+    // Limpar medicamentos
+    const medicationsRef = collection(db, 'medications');
+    const medicationsQuery = query(medicationsRef, where('userId', '==', userId));
+    const medicationsSnapshot = await getDocs(medicationsQuery);
+    medicationsSnapshot.forEach(async (doc) => {
       await deleteDoc(doc.ref);
     });
 

@@ -1,11 +1,12 @@
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
-import { Animated, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, RefreshControl, Modal } from 'react-native';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
+import { Animated, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, RefreshControl, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useProfile } from '../contexts/ProfileContext';
 import { useEntranceAnimation } from '../utils/animations';
 import { getAllMembers, getAllTreatments, Member, Treatment } from '../services/firebase';
+import { askGeminiChat } from '../services/gemini';
 
 interface HomeScreenProps {
   navigation?: any;
@@ -21,6 +22,34 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ id: string, text: string, isUser: boolean, timestamp: Date }>>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatScrollViewRef = useRef<ScrollView>(null);
+  
+  // Animação do balãozinho de chat
+  const chatBubbleAnim = useRef(new Animated.Value(1)).current;
+  
+  useEffect(() => {
+    const pulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(chatBubbleAnim, {
+          toValue: 1.2,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(chatBubbleAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulseAnimation.start();
+    
+    return () => pulseAnimation.stop();
+  }, []);
   const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
 
   useEffect(() => {
@@ -148,8 +177,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   };
 
   const handleMarkAsDone = (scheduleId: string) => {
-    setTodaysSchedule(prevSchedule => 
-      prevSchedule.map(item => 
+    setTodaysSchedule(prevSchedule =>
+      prevSchedule.map(item =>
         item.id === scheduleId ? { ...item, status: 'tomado' } : item
       )
     );
@@ -157,10 +186,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   };
 
   const handleNotificationPress = () => {
-    const overdueItems = todaysSchedule.filter(item => 
+    const overdueItems = todaysSchedule.filter(item =>
       item.status === 'pendente' && new Date(item.scheduled_time) < new Date()
     );
-    
+
     if (overdueItems.length > 0) {
       setShowNotificationsModal(true);
     } else {
@@ -169,13 +198,94 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   };
 
   const getOverdueItems = () => {
-    return todaysSchedule.filter(item => 
+    return todaysSchedule.filter(item =>
       item.status === 'pendente' && new Date(item.scheduled_time) < new Date()
     );
   };
 
+  // Funções do Chat com IA
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+
+    const userMessage = chatInput.trim();
+    const messageId = Date.now().toString();
+
+    // Adicionar mensagem do usuário
+    const newUserMessage = {
+      id: messageId,
+      text: userMessage,
+      isUser: true,
+      timestamp: new Date()
+    };
+
+    setChatMessages(prev => [...prev, newUserMessage]);
+    setChatInput('');
+    setChatLoading(true);
+
+    try {
+      // Criar contexto específico para o assistente médico
+      const contextualMessage = `CONTEXTO: Você é um assistente médico virtual do app "Personal MediCare", um aplicativo para controle de medicamentos familiares.
+
+REGRAS IMPORTANTES:
+- Sempre lembre que você é um assistente virtual e NÃO substitui consulta médica
+- Para qualquer decisão sobre medicamentos, SEMPRE recomende consultar um médico
+- Seja amigável, mas responsável nas orientações
+- Foque em informações gerais sobre medicamentos e uso do app
+- Use linguagem simples e acessível
+
+PERGUNTA DO USUÁRIO: ${userMessage}
+
+Responda de forma amigável e responsável, sempre lembrando da importância da consulta médica para decisões sobre medicamentos.`;
+
+      const aiResponse = await askGeminiChat(contextualMessage);
+
+      // Adicionar resposta da IA
+      const aiMessage = {
+        id: (Date.now() + 1).toString(),
+        text: aiResponse,
+        isUser: false,
+        timestamp: new Date()
+      };
+
+      setChatMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Erro no chat:', error);
+
+      // Mensagem de erro amigável
+      const errorMessage = {
+        id: (Date.now() + 1).toString(),
+        text: "Desculpe, não consegui processar sua pergunta no momento. 😔 Tente novamente em alguns instantes ou consulte seu médico para orientações específicas sobre medicamentos.",
+        isUser: false,
+        timestamp: new Date()
+      };
+
+      setChatMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const handleCloseChatModal = () => {
+    setShowChatModal(false);
+    // Limpar mensagens ao fechar (opcional)
+    // setChatMessages([]);
+  };
+
+  const initializeChatWithWelcome = () => {
+    if (chatMessages.length === 0) {
+      const welcomeMessage = {
+        id: 'welcome',
+        text: `Olá! 👋 Sou sua assistente médica virtual do Personal MediCare!\n\nPosso te ajudar com:\n• Informações sobre medicamentos\n• Dúvidas sobre o uso do app\n• Orientações gerais de saúde\n\n⚠️ Lembre-se: Sempre consulte seu médico antes de tomar qualquer decisão sobre medicamentos!\n\nComo posso te ajudar hoje? 😊`,
+        isUser: false,
+        timestamp: new Date()
+      };
+      setChatMessages([welcomeMessage]);
+    }
+    return null;
+  };
+
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.container}
       refreshControl={
         <RefreshControl
@@ -190,22 +300,29 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       {/* Welcome Section */}
       <Animated.View style={[styles.welcomeSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.welcomeContent}>
-          <View style={styles.avatarContainer}>
+          <TouchableOpacity style={styles.avatarContainer} onPress={() => setShowChatModal(true)}>
             <Image source={require('../assets/images/medica-avatar.png')} style={styles.avatarImage} resizeMode="contain" />
-          </View>
+            {/* Balãozinho de chat pulsando */}
+            <Animated.View style={[
+              styles.chatBubbleIndicator,
+              { transform: [{ scale: chatBubbleAnim }] }
+            ]}>
+              <Ionicons name="chatbubble" size={16} color="#fff" />
+            </Animated.View>
+          </TouchableOpacity>
           <View style={styles.welcomeText}>
             <Text style={styles.welcomeTitle}>
               Olá, {profile?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário'}!
             </Text>
             <Text style={styles.welcomeSubtitle}>
-              {new Date().toLocaleDateString('pt-BR', { 
-                weekday: 'long', 
-                day: 'numeric', 
-                month: 'long' 
+              {new Date().toLocaleDateString('pt-BR', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long'
               })}
             </Text>
           </View>
-          
+
           {/* Notification Bell */}
           <TouchableOpacity style={styles.notificationBell} onPress={handleNotificationPress}>
             <Ionicons name="notifications" size={24} color="rgba(255,255,255,0.9)" />
@@ -240,13 +357,13 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           {todaysSchedule.length > 0 && (
             <View style={styles.progressContainer}>
               <View style={styles.progressBar}>
-                <View 
+                <View
                   style={[
-                    styles.progressFill, 
-                    { 
-                      width: `${Math.round((todaysSchedule.filter(item => item.status === 'tomado').length / todaysSchedule.length) * 100)}%` 
+                    styles.progressFill,
+                    {
+                      width: `${Math.round((todaysSchedule.filter(item => item.status === 'tomado').length / todaysSchedule.length) * 100)}%`
                     }
-                  ]} 
+                  ]}
                 />
               </View>
               <Text style={styles.progressText}>
@@ -276,7 +393,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               <Text style={styles.emptySubtext}>Adicione membros e tratamentos para começar</Text>
             </View>
           ) : (
-            <ScrollView 
+            <ScrollView
               style={styles.scheduleScrollView}
               showsVerticalScrollIndicator={true}
             >
@@ -300,17 +417,17 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                         styles.scheduleTime,
                         item.status === 'tomado' && styles.scheduleTimeDone
                       ]}>
-                        {new Date(item.scheduled_time).toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
+                        {new Date(item.scheduled_time).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit'
                         })}
                       </Text>
                       <View style={[
-                        styles.scheduleStatusDot, 
+                        styles.scheduleStatusDot,
                         item.status === 'tomado' && styles.scheduleStatusDotDone
                       ]} />
                     </View>
-                    
+
                     {/* Conteúdo do Medicamento */}
                     <View style={styles.scheduleContent}>
                       <Text style={[
@@ -326,16 +443,16 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                         {item.dosage}
                       </Text>
                     </View>
-                    
+
                     {/* Botão de Ação */}
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={[styles.scheduleAction, item.status === 'tomado' && styles.scheduleActionDone]}
                       onPress={() => handleMarkAsDone(item.id)}
                     >
-                      <Ionicons 
-                        name={item.status === 'tomado' ? 'checkmark-circle' : 'ellipse-outline'} 
-                        size={20} 
-                        color={item.status === 'tomado' ? '#fff' : '#b081ee'} 
+                      <Ionicons
+                        name={item.status === 'tomado' ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={20}
+                        color={item.status === 'tomado' ? '#fff' : '#b081ee'}
                       />
                     </TouchableOpacity>
                   </View>
@@ -400,7 +517,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
-            
+
             <ScrollView style={styles.overdueList} showsVerticalScrollIndicator={false}>
               {getOverdueItems().map((item, index) => (
                 <View key={item.id} style={styles.overdueItem}>
@@ -421,15 +538,15 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                     <Text style={styles.overdueMember}>{item.member_name}</Text>
                     <Text style={styles.overdueDosage}>{item.dosage}</Text>
                     <Text style={styles.overdueTime}>
-                      Previsto para: {new Date(item.scheduled_time).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
+                      Previsto para: {new Date(item.scheduled_time).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit'
                       })}
                     </Text>
                   </View>
 
                   {/* Botão de Ação */}
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.overdueActionButton}
                     onPress={() => {
                       handleMarkAsDone(item.id);
@@ -447,7 +564,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             </ScrollView>
 
             {/* Botão para Fechar */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={() => setShowNotificationsModal(false)}
             >
@@ -456,6 +573,131 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           </View>
         </View>
       </Modal>
+
+      {/* Modal de Chat com IA */}
+      <Modal
+        visible={showChatModal}
+        transparent
+        animationType="slide"
+        onRequestClose={handleCloseChatModal}
+      >
+        <KeyboardAvoidingView 
+          style={styles.chatModalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <View style={styles.chatModalContent}>
+            <View style={styles.chatHeader}>
+              <View style={styles.chatHeaderInfo}>
+                <View style={styles.chatAvatarContainer}>
+                  <Image source={require('../assets/images/medica-avatar.png')} style={styles.chatAvatarImage} />
+                </View>
+                <View>
+                  <Text style={styles.chatTitle}>Assistente Médica Virtual</Text>
+                  <Text style={styles.chatSubtitle}>Personal MediCare</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={handleCloseChatModal} style={styles.chatCloseButton}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              ref={chatScrollViewRef}
+              style={styles.chatMessages}
+              showsVerticalScrollIndicator={false}
+              onContentSizeChange={() => chatScrollViewRef.current?.scrollToEnd({ animated: true })}
+            >
+              {chatMessages.length === 0 ? (
+                (() => {
+                  initializeChatWithWelcome();
+                  return null;
+                })()
+              ) : null}
+              {chatMessages.map((message) => (
+                <View key={message.id} style={[
+                  styles.chatMessage,
+                  message.isUser ? styles.chatMessageUser : styles.chatMessageAI
+                ]}>
+                  {!message.isUser && (
+                    <View style={styles.chatMessageAvatarContainer}>
+                      <Image source={require('../assets/images/medica-avatar.png')} style={styles.chatMessageAvatar} />
+                    </View>
+                  )}
+                  <View style={[
+                    styles.chatMessageBubble,
+                    message.isUser ? styles.chatMessageBubbleUser : styles.chatMessageBubbleAI
+                  ]}>
+                    <Text style={[
+                      styles.chatMessageText,
+                      message.isUser ? styles.chatMessageTextUser : styles.chatMessageTextAI
+                    ]}>
+                      {message.text}
+                    </Text>
+                    <Text style={[
+                      styles.chatMessageTime,
+                      message.isUser ? styles.chatMessageTimeUser : styles.chatMessageTimeAI
+                    ]}>
+                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+
+              {chatLoading && (
+                <View style={[styles.chatMessage, styles.chatMessageAI]}>
+                  <View style={styles.chatMessageAvatarContainer}>
+                    <Image source={require('../assets/images/medica-avatar.png')} style={styles.chatMessageAvatar} />
+                  </View>
+                  <View style={styles.chatTypingIndicator}>
+                    <Text style={styles.chatTypingText}>Digitando...</Text>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.chatInputContainer}>
+              <TextInput
+                style={styles.chatInput}
+                placeholder="Digite sua pergunta sobre medicamentos..."
+                value={chatInput}
+                onChangeText={setChatInput}
+                multiline
+                maxLength={500}
+                editable={!chatLoading}
+                placeholderTextColor="#999"
+                onFocus={() => {
+                  setTimeout(() => {
+                    chatScrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 100);
+                }}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.chatSendButton,
+                  (!chatInput.trim() || chatLoading) && styles.chatSendButtonDisabled
+                ]}
+                onPress={handleSendMessage}
+                disabled={!chatInput.trim() || chatLoading}
+              >
+                <Ionicons
+                  name="send"
+                  size={20}
+                  color={(!chatInput.trim() || chatLoading) ? "#ccc" : "#fff"}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.chatDisclaimer}>
+              <Ionicons name="warning" size={16} color="#ff9500" />
+              <Text style={styles.chatDisclaimerText}>
+                Este assistente não substitui consulta médica. Sempre consulte seu médico.
+              </Text>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
     </ScrollView>
   );
 }
@@ -482,10 +724,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
+    position: 'relative',
+  },
+  chatBubbleIndicator: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#34C759',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   avatarImage: {
-    width: 32,
-    height: 32,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
   },
   welcomeText: {
     flex: 1,
@@ -642,104 +904,35 @@ const styles = StyleSheet.create({
   },
   scheduleMedication: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 2,
-  },
-  scheduleMember: {
-    fontSize: 14,
-    color: '#b081ee',
     fontWeight: '600',
+    color: '#2d1155',
     marginBottom: 2,
-  },
-  scheduleDosage: {
-    fontSize: 12,
-    color: '#666',
-  },
-  scheduleTimeDone: {
-    textDecorationLine: 'line-through',
-    color: '#999',
   },
   scheduleMedicationDone: {
     textDecorationLine: 'line-through',
     color: '#999',
   },
+  scheduleDosage: {
+    fontSize: 14,
+    color: '#666',
+  },
   scheduleDosageDone: {
     textDecorationLine: 'line-through',
     color: '#999',
   },
+  scheduleTimeDone: {
+    textDecorationLine: 'line-through',
+    color: '#999',
+  },
   scheduleAction: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(176, 129, 238, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 8,
   },
   scheduleActionDone: {
     backgroundColor: '#34C759',
+    borderRadius: 20,
   },
-  viewMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    marginTop: 8,
-  },
-  viewMoreText: {
-    fontSize: 14,
-    color: '#b081ee',
-    fontWeight: '600',
-    marginRight: 4,
-  },
-  // Members styles
-  membersScroll: {
-    paddingHorizontal: 4,
-  },
-  memberCard: {
-    width: 120,
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 16,
-    marginRight: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  memberAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginBottom: 8,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  memberAvatarPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  memberName: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  memberRelation: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-  },
-  // Daily Summary styles
+
+  // Daily Summary Styles
   dailySummary: {
     marginTop: 16,
     paddingTop: 16,
@@ -754,52 +947,34 @@ const styles = StyleSheet.create({
   summaryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
   summaryText: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.9)',
     marginLeft: 6,
-    fontWeight: '500',
   },
   progressContainer: {
     marginTop: 8,
-    marginBottom: 8,
   },
   progressBar: {
     height: 6,
     backgroundColor: 'rgba(255,255,255,0.3)',
     borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: 6,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#FFD60A',
+    backgroundColor: '#fff',
     borderRadius: 3,
   },
   progressText: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
-    fontWeight: '600',
+    marginTop: 6,
   },
-  overdueAlert: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 214, 10, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  overdueText: {
-    fontSize: 12,
-    color: '#FFD60A',
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  // Notification Bell styles
+
+  // Notification Bell Styles
   notificationBell: {
     position: 'relative',
     padding: 8,
@@ -808,40 +983,34 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: '#FFD60A',
+    backgroundColor: '#ff4757',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#b081ee',
+    borderColor: '#fff',
   },
   notificationBadgeText: {
-    color: '#2d1155',
-    fontSize: 11,
+    color: '#fff',
+    fontSize: 12,
     fontWeight: 'bold',
   },
-  // Modal styles
+
+  // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
   modalContent: {
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 20,
-    width: '100%',
-    maxWidth: 400,
+    width: '90%',
     maxHeight: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -850,12 +1019,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f3f4',
+    borderBottomColor: '#f0f0f0',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#2d1155',
   },
   overdueList: {
     maxHeight: 400,
@@ -898,24 +1067,23 @@ const styles = StyleSheet.create({
   overdueMedication: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#2d1155',
     marginBottom: 2,
   },
   overdueMember: {
     fontSize: 14,
-    color: '#ff6b6b',
-    fontWeight: '600',
+    color: '#666',
     marginBottom: 2,
   },
   overdueDosage: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: 13,
+    color: '#999',
     marginBottom: 4,
   },
   overdueTime: {
-    fontSize: 11,
-    color: '#999',
-    fontStyle: 'italic',
+    fontSize: 12,
+    color: '#ff6b6b',
+    fontWeight: '600',
   },
   overdueActionButton: {
     width: 44,
@@ -937,6 +1105,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+
   // New layout styles
   agendaContainer: {
     marginTop: 10,
@@ -957,6 +1126,52 @@ const styles = StyleSheet.create({
   membersSection: {
     paddingHorizontal: 16,
   },
+  membersScroll: {
+    paddingVertical: 8,
+  },
+  memberCard: {
+    width: 120,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginRight: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  memberAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: '#b081ee',
+  },
+  memberAvatarPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(176, 129, 238, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: '#b081ee',
+  },
+  memberName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#2d1155',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  memberRelation: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
   emptyStateMini: {
     alignItems: 'center',
     paddingVertical: 20,
@@ -965,5 +1180,182 @@ const styles = StyleSheet.create({
     marginTop: 8,
     color: '#666',
     fontSize: 14,
+  },
+
+  // Chat Modal Styles
+  chatModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  chatModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: '80%',
+    paddingTop: 20,
+    maxHeight: '80%',
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  chatHeaderInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chatAvatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  chatAvatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  chatTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2d1155',
+  },
+  chatSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  chatCloseButton: {
+    padding: 8,
+  },
+  chatMessages: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  chatMessage: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    alignItems: 'flex-end',
+  },
+  chatMessageUser: {
+    justifyContent: 'flex-end',
+  },
+  chatMessageAI: {
+    justifyContent: 'flex-start',
+  },
+  chatMessageAvatarContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  chatMessageAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  chatMessageBubble: {
+    maxWidth: '75%',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 18,
+  },
+  chatMessageBubbleUser: {
+    backgroundColor: '#b081ee',
+    borderBottomRightRadius: 4,
+  },
+  chatMessageBubbleAI: {
+    backgroundColor: '#f0f0f0',
+    borderBottomLeftRadius: 4,
+  },
+  chatMessageText: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  chatMessageTextUser: {
+    color: '#fff',
+  },
+  chatMessageTextAI: {
+    color: '#333',
+  },
+  chatMessageTime: {
+    fontSize: 11,
+    marginTop: 4,
+    opacity: 0.7,
+  },
+  chatMessageTimeUser: {
+    color: '#fff',
+  },
+  chatMessageTimeAI: {
+    color: '#666',
+  },
+  chatTypingIndicator: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderBottomLeftRadius: 4,
+  },
+  chatTypingText: {
+    fontSize: 15,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  chatInputContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    alignItems: 'flex-end',
+  },
+  chatInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    maxHeight: 100,
+    marginRight: 12,
+  },
+  chatSendButton: {
+    backgroundColor: '#b081ee',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chatSendButtonDisabled: {
+    backgroundColor: '#e0e0e0',
+  },
+  chatDisclaimer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#fff8e1',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  chatDisclaimerText: {
+    fontSize: 12,
+    color: '#ff9500',
+    marginLeft: 8,
+    flex: 1,
   },
 });
