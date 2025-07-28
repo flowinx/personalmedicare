@@ -50,6 +50,12 @@
           "iosUrlScheme": "com.googleusercontent.apps.648780623753-p6t59ds95j25g8d1m783g3q67hr0hqr3"
         }
       ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Este aplicativo usa Face ID para autenticação biométrica segura."
+        }
+      ],
       "expo-dev-client"
     ],
     "experiments": {

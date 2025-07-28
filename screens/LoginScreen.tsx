@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Dimensions, Image, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { signInWithApple, signInWithEmail, signInWithGoogle } from '../services/firebase';
 import { useEntranceAnimation } from '../utils/animations';
+import * as LocalAuthentication from 'expo-local-authentication';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -20,11 +22,90 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  const [biometricType, setBiometricType] = useState('');
+  const [savedCredentials, setSavedCredentials] = useState<{email: string, password: string} | null>(null);
   const { fadeAnim, slideAnim, scaleAnim, startAnimation } = useEntranceAnimation();
 
   useEffect(() => {
     startAnimation();
+    checkBiometricSupport();
+    loadBiometricSettings();
   }, [startAnimation]);
+
+  const checkBiometricSupport = async () => {
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
+
+      setBiometricSupported(compatible && enrolled);
+
+      if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+        setBiometricType('Face ID');
+      } else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+        setBiometricType('Touch ID');
+      } else {
+        setBiometricType('Biometria');
+      }
+    } catch (error) {
+      console.error('Erro ao verificar suporte biométrico:', error);
+      setBiometricSupported(false);
+    }
+  };
+
+  const loadBiometricSettings = async () => {
+    try {
+      const biometricAuthEnabled = await AsyncStorage.getItem('biometric_auth_enabled');
+      const credentials = await AsyncStorage.getItem('saved_credentials');
+      
+      if (biometricAuthEnabled) {
+        setBiometricEnabled(JSON.parse(biometricAuthEnabled));
+      }
+      
+      if (credentials) {
+        setSavedCredentials(JSON.parse(credentials));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar configurações biométricas:', error);
+    }
+  };
+
+  const handleBiometricLogin = async () => {
+    if (!biometricSupported || !biometricEnabled || !savedCredentials) {
+      return;
+    }
+
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: `Use ${biometricType} para entrar`,
+        cancelLabel: 'Cancelar',
+        fallbackLabel: '',
+        disableDeviceFallback: true,
+      });
+
+      if (result.success) {
+        setIsLoading(true);
+        await signInWithEmail(savedCredentials.email, savedCredentials.password);
+      }
+    } catch (error: any) {
+      console.error('Erro na autenticação biométrica:', error);
+      Alert.alert('Erro', 'Erro na autenticação biométrica. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveCredentialsForBiometric = async (email: string, password: string) => {
+    if (biometricEnabled && biometricSupported) {
+      try {
+        await AsyncStorage.setItem('saved_credentials', JSON.stringify({ email, password }));
+      } catch (error) {
+        console.error('Erro ao salvar credenciais:', error);
+      }
+    }
+  };
 
   // Validação em tempo real
   const validateEmail = (email: string) => {
@@ -74,6 +155,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       console.log('[Login] Tentando fazer login com:', email);
       await signInWithEmail(email, password);
       console.log('[Login] Login realizado com sucesso');
+      
+      // Salvar credenciais para autenticação biométrica se habilitada
+      await saveCredentialsForBiometric(email, password);
+      
       // A navegação será feita automaticamente pelo AuthContext
     } catch (error: any) {
       console.error('[Login] Erro no login:', error);
@@ -254,31 +339,47 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={[
-                styles.signInButton,
-                !isFormValid() || isLoading ? styles.signInButtonDisabled : null
-              ]}
-              onPress={handleLogin}
-              disabled={!isFormValid() || isLoading}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={['#A78BFA', '#8B5CF6']}
-                style={styles.signInButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+            <View style={styles.buttonsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.signInButton,
+                  !isFormValid() || isLoading ? styles.signInButtonDisabled : null
+                ]}
+                onPress={handleLogin}
+                disabled={!isFormValid() || isLoading}
+                activeOpacity={0.8}
               >
-                {isLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                    <Text style={styles.signInButtonText}>Entrando...</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.signInButtonText}>Entrar</Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+                <LinearGradient
+                  colors={['#A78BFA', '#8B5CF6']}
+                  style={styles.signInButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  {isLoading ? (
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <Text style={styles.signInButtonText}>Entrando...</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.signInButtonText}>Entrar</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {biometricSupported && biometricEnabled && savedCredentials && (
+                <TouchableOpacity
+                  style={styles.biometricSquareButton}
+                  onPress={handleBiometricLogin}
+                  disabled={isLoading || isGoogleLoading || isAppleLoading}
+                >
+                  <Image 
+                    source={require('../assets/images/biometria.png')}
+                    style={styles.biometricImage}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
 
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
@@ -504,14 +605,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
+  buttonsContainer: {
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 10,
+  },
   signInButton: {
     width: '100%',
     height: 56,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 24,
+    marginBottom: 10,
     marginHorizontal: 0,
     shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 4 },
@@ -539,7 +644,7 @@ const styles = StyleSheet.create({
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 15,
+    marginVertical: 10,
   },
   dividerLine: {
     flex: 1,
@@ -554,7 +659,8 @@ const styles = StyleSheet.create({
   socialButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 15,
+    marginTop: 10,
+    marginBottom: 10,
   },
   socialButton: {
     flexDirection: 'row',
@@ -584,5 +690,42 @@ const styles = StyleSheet.create({
   inputError: {
     borderColor: '#FF6B6B',
     borderWidth: 1.5,
+  },
+  biometricButton: {
+    borderColor: '#A78BFA',
+    borderWidth: 1,
+  },
+  biometricLoginButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginTop: 15,
+    borderWidth: 1,
+    borderColor: '#A78BFA',
+  },
+  biometricLoginText: {
+    marginLeft: 10,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#A78BFA',
+  },
+  biometricSquareButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 5,
+  },
+  biometricImage: {
+    width: 60,
+    height: 60,
   },
 });

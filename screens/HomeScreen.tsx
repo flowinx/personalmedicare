@@ -557,7 +557,7 @@ Responda de forma amigável e responsável, sempre lembrando da importância da 
                       }
                     }}
                   >
-                    <Ionicons name="checkmark-circle" size={24} color="#34C759" />
+                    <Ionicons name="ellipse-outline" size={24} color="#34C759" />
                   </TouchableOpacity>
                 </View>
               ))}

@@ -117,6 +117,17 @@ export default function AddTreatmentScreen() {
     loadMembers();
   }, [fadeAnim, slideAnim, startAnimation, loadMembers]);
 
+  // Efeito para processar parâmetros da navegação (memberId)
+  useEffect(() => {
+    const params = route.params as any;
+    if (params?.memberId) {
+      setFormData(prev => ({ 
+        ...prev, 
+        member_id: params.memberId 
+      }));
+    }
+  }, [route.params]);
+
 
 
   useEffect(() => {
@@ -149,6 +160,28 @@ export default function AddTreatmentScreen() {
     
     loadTreatmentData();
   }, [route.params]);
+
+  // Função para resetar o formulário
+  const resetForm = () => {
+    setFormData({
+      member_id: '',
+      medication: '',
+      frequency_value: 1,
+      frequency_unit: 'horas',
+      duration: '7 dias',
+      notes: '',
+      start_datetime: new Date().toISOString(),
+      status: 'ativo'
+    });
+    setDosage('');
+    setFrequencyValueText('1');
+    setCustomDurationValue('');
+    setCustomDurationUnit('dias');
+    setDurationTabSelected('custom');
+    setSelectedDate(new Date());
+    setSelectedTime(new Date());
+    setMedicationInfo('');
+  };
 
   const handleSaveTreatment = async () => {
     // Validação dos campos obrigatórios
@@ -223,6 +256,10 @@ export default function AddTreatmentScreen() {
             text: 'OK',
             onPress: () => {
               try {
+                // Limpar o formulário após salvar com sucesso
+                resetForm();
+                console.log('[AddTreatment] Formulário limpo após criação');
+                
                 console.log('[AddTreatment] Navegando de volta após criação...');
                 if (navigation && typeof navigation.goBack === 'function') {
                   navigation.goBack();

@@ -15,13 +15,6 @@ prepare_react_native_project!
 
 target 'PersonalMediCare' do
   use_expo_modules!
-  use_modular_headers!
-  
-  # Firebase dependencies
-  pod 'Firebase/Core'
-  pod 'Firebase/Firestore'
-  pod 'Firebase/Auth'
-  pod 'Firebase/Storage'
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
     config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];
