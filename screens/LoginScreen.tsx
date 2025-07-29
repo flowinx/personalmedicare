@@ -50,7 +50,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         setBiometricType('Biometria');
       }
     } catch (error) {
-      console.error('Erro ao verificar suporte biométrico:', error);
       setBiometricSupported(false);
     }
   };
@@ -68,12 +67,23 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         setSavedCredentials(JSON.parse(credentials));
       }
     } catch (error) {
-      console.error('Erro ao carregar configurações biométricas:', error);
+      // Silently handle error
     }
   };
 
   const handleBiometricLogin = async () => {
-    if (!biometricSupported || !biometricEnabled || !savedCredentials) {
+    if (!biometricSupported) {
+      Alert.alert('Login Inválido', 'Biometria não está disponível ou não foi configurada neste dispositivo.');
+      return;
+    }
+    
+    if (!biometricEnabled) {
+      Alert.alert('Login Inválido', 'Biometria não está habilitada para este app. Ative nas configurações.');
+      return;
+    }
+    
+    if (!savedCredentials) {
+      Alert.alert('Login Inválido', 'Faça login primeiro para salvar suas credenciais.');
       return;
     }
 
@@ -88,10 +98,11 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       if (result.success) {
         setIsLoading(true);
         await signInWithEmail(savedCredentials.email, savedCredentials.password);
+      } else {
       }
     } catch (error: any) {
-      console.error('Erro na autenticação biométrica:', error);
-      Alert.alert('Erro', 'Erro na autenticação biométrica. Tente novamente.');
+      // Biometric authentication error
+      Alert.alert('Login Inválido', 'Erro na autenticação biométrica. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +113,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       try {
         await AsyncStorage.setItem('saved_credentials', JSON.stringify({ email, password }));
       } catch (error) {
-        console.error('Erro ao salvar credenciais:', error);
+        // Error saving credentials
       }
     }
   };
@@ -145,29 +156,30 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
   const handleLogin = async () => {
     if (!isFormValid()) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos corretamente.');
+      Alert.alert('Login Inválido', 'Por favor, preencha todos os campos corretamente.');
       return;
     }
 
     setIsLoading(true);
     
     try {
-      console.log('[Login] Tentando fazer login com:', email);
+      // Attempting login
       await signInWithEmail(email, password);
-      console.log('[Login] Login realizado com sucesso');
+      // Login successful
       
       // Salvar credenciais para autenticação biométrica se habilitada
       await saveCredentialsForBiometric(email, password);
       
       // A navegação será feita automaticamente pelo AuthContext
     } catch (error: any) {
-      console.error('[Login] Erro no login:', error);
       let errorMessage = 'Erro ao fazer login. Tente novamente.';
       
       if (error.code === 'auth/user-not-found') {
         errorMessage = 'Usuário não encontrado.';
       } else if (error.code === 'auth/wrong-password') {
         errorMessage = 'Senha incorreta.';
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = 'Email ou senha incorretos. Verifique suas credenciais.';
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Email inválido.';
       } else if (error.code === 'auth/too-many-requests') {
@@ -176,7 +188,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         errorMessage = 'Erro de conexão. Verifique sua internet.';
       }
       
-      Alert.alert('Erro', errorMessage);
+      Alert.alert('Login Inválido', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -185,13 +197,13 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
     try {
-      console.log('[Login] Tentando login com Google');
+      // Attempting Google login
       await signInWithGoogle();
-      console.log('[Login] Login com Google realizado com sucesso');
+      // Google login successful
       // A navegação será feita automaticamente pelo AuthContext
     } catch (error: any) {
-      console.error('[Login] Erro no login com Google:', error);
-      Alert.alert('Erro', 'Erro ao fazer login com Google. Tente novamente.');
+      // Google login error
+      Alert.alert('Login Inválido', 'Erro ao fazer login com Google. Tente novamente.');
     } finally {
       setIsGoogleLoading(false);
     }
@@ -200,13 +212,13 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const handleAppleLogin = async () => {
     setIsAppleLoading(true);
     try {
-      console.log('[Login] Tentando login com Apple');
+      // Attempting Apple login
       await signInWithApple();
-      console.log('[Login] Login com Apple realizado com sucesso');
+      // Apple login successful
       // A navegação será feita automaticamente pelo AuthContext
     } catch (error: any) {
-      console.error('[Login] Erro no login com Apple:', error);
-      Alert.alert('Erro', 'Erro ao fazer login com Apple. Tente novamente.');
+      // Apple login error
+      Alert.alert('Login Inválido', 'Erro ao fazer login com Apple. Tente novamente.');
     } finally {
       setIsAppleLoading(false);
     }
@@ -350,7 +362,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                 activeOpacity={0.8}
               >
                 <LinearGradient
-                  colors={['#A78BFA', '#8B5CF6']}
+                  colors={['#b081ee', '#8B5CF6']}
                   style={styles.signInButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -431,7 +443,7 @@ const styles = StyleSheet.create({
     height: 240,
     paddingTop: 40,
     paddingHorizontal: 20,
-    backgroundColor: '#A78BFA',
+    backgroundColor: '#b081ee',
     justifyContent: 'space-between',
   },
   headerTop: {
@@ -508,7 +520,7 @@ const styles = StyleSheet.create({
        content: {
     flex: 1,
     paddingHorizontal: 15,
-    backgroundColor: '#A78BFA',
+    backgroundColor: '#b081ee',
     justifyContent: 'flex-start',
     paddingTop: 10,
   },
@@ -550,7 +562,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   signupLink: {
-    color: '#A78BFA',
+    color: '#b081ee',
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -692,7 +704,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   biometricButton: {
-    borderColor: '#A78BFA',
+    borderColor: '#b081ee',
     borderWidth: 1,
   },
   biometricLoginButton: {
@@ -705,13 +717,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 15,
     borderWidth: 1,
-    borderColor: '#A78BFA',
+    borderColor: '#b081ee',
   },
   biometricLoginText: {
     marginLeft: 10,
     fontSize: 16,
     fontWeight: '600',
-    color: '#A78BFA',
+    color: '#b081ee',
   },
   biometricSquareButton: {
     width: 60,

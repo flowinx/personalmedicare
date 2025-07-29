@@ -126,6 +126,7 @@ Formate a resposta de forma clara e objetiva.`;
       ]
     };
 
+    console.log('[Gemini] Making request to API...');
     const response = await fetch(`${GeminiConfig.BASE_URL}?key=${GeminiConfig.API_KEY}`, {
       method: 'POST',
       headers: {
@@ -134,8 +135,11 @@ Formate a resposta de forma clara e objetiva.`;
       body: JSON.stringify(requestBody),
     });
 
+    console.log('[Gemini] Response status:', response.status);
     if (!response.ok) {
-      throw new Error(`Erro na requisição: ${response.status}`);
+      const errorText = await response.text();
+      console.error('[Gemini] Error response:', errorText);
+      throw new Error(`Erro na requisição: ${response.status} - ${errorText}`);
     }
 
     const data: GeminiResponse = await response.json();
@@ -266,7 +270,8 @@ Forneça uma análise completa, profissional e informativa que agregue real valo
       throw new Error('Nenhuma análise médica gerada');
     }
 
-    return data.candidates[0].content.parts[0].text.trim();
+    const result = data.candidates[0].content.parts[0].text.trim();
+    return result;
 
   } catch (error) {
     console.error('[Gemini] Erro ao gerar dossiê médico:', error);

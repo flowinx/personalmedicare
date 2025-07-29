@@ -19,9 +19,9 @@ export const Colors = {
     // Opção 3: Roxo escuro suave (aplicado)
     text: '#F0E8F8',
     background: '#1A1620',
-    tint: '#9C27B0',
+    tint: '#b081ee',
     icon: '#8A7B8A',
     tabIconDefault: '#8A7B8A',
-    tabIconSelected: '#9C27B0',
+    tabIconSelected: '#b081ee',
   },
 };

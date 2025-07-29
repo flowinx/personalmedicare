@@ -12,7 +12,7 @@ try {
   
   // IMPORTANTE: Substitua pela senha de app real do Gmail
   console.log('🔑 Configurando senha do email...');
-  execSync('firebase functions:config:set email.password="your_gmail_app_password_here"', { stdio: 'inherit' });
+  execSync('firebase functions:config:set email.password="CONFIGURE_GMAIL_APP_PASSWORD"', { stdio: 'inherit' });
   
   // Email de destino
   console.log('📬 Configurando email de destino...');
@@ -20,7 +20,7 @@ try {
   
   console.log('\n✅ Configuração concluída!');
   console.log('\n⚠️  IMPORTANTE:');
-  console.log('1. Substitua "your_gmail_app_password_here" pela senha de app real do Gmail');
+  console.log('1. Substitua "CONFIGURE_GMAIL_APP_PASSWORD" pela senha de app real do Gmail');
   console.log('2. Execute: firebase functions:config:set email.password="sua_senha_real_aqui"');
   console.log('3. Para ver as configurações: firebase functions:config:get');
   

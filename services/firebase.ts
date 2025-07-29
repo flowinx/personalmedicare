@@ -147,7 +147,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
     const result = await signInWithEmailAndPassword(auth, email, password);
     return result.user;
   } catch (error) {
-    console.error('Erro ao fazer login:', error);
+    // Erro será tratado na camada de UI (LoginScreen)
     throw error;
   }
 }

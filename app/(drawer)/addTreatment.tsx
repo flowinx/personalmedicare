@@ -19,7 +19,7 @@ import {
 import { addTreatment, getAllMembers, getTreatmentById, updateTreatment } from '../../db/index';
 import { Member } from '../../types';
 import { useEntranceAnimation } from '../../utils/animations';
-import { fetchMedicationInfo } from '../../services/gemini';
+import { fetchMedicationInfo } from '../../services/groq';
 
 interface TreatmentFormData {
   member_id: string;
@@ -95,7 +95,7 @@ export default function AddTreatmentScreen() {
       const membersData = await getAllMembers();
       setMembers(membersData);
     } catch (error) {
-      console.error('[AddTreatmentScreen] Erro ao carregar membros:', error);
+      // Error loading members
     }
   }, []);
 
@@ -120,10 +120,18 @@ export default function AddTreatmentScreen() {
   // Efeito para processar parâmetros da navegação (memberId)
   useEffect(() => {
     const params = route.params as any;
-    if (params?.memberId) {
+    // Só define o member_id se há um memberId válido nos parâmetros
+    // e se não estamos vindo do menu drawer (sem parâmetros)
+    if (params?.memberId && params.memberId.trim() !== '') {
       setFormData(prev => ({ 
         ...prev, 
         member_id: params.memberId 
+      }));
+    } else {
+      // Se não há memberId nos parâmetros, garantir que o campo está limpo
+      setFormData(prev => ({ 
+        ...prev, 
+        member_id: '' 
       }));
     }
   }, [route.params]);
@@ -152,7 +160,7 @@ export default function AddTreatmentScreen() {
             setFrequencyValueText(treatment.frequency_value.toString());
           }
         } catch (error) {
-          console.error('[AddTreatment] Error loading treatment:', error);
+          // Error loading treatment
           Alert.alert('Erro', 'Não foi possível carregar os dados do tratamento.');
         }
       }
@@ -197,10 +205,10 @@ export default function AddTreatmentScreen() {
     }
 
     try {
-      console.log('[AddTreatment] Iniciando salvamento do tratamento...');
+      // Starting treatment save
       
       // Verificar se o usuário está autenticado antes de prosseguir
-      console.log('[AddTreatment] Verificando autenticação do usuário...');
+      // Checking user authentication
       
       const combinedDateTime = new Date(
         selectedDate.getFullYear(),
@@ -222,35 +230,35 @@ export default function AddTreatmentScreen() {
         status: 'ativo'
       };
 
-      console.log('[AddTreatment] Dados do tratamento preparados:', treatmentData);
+      // Treatment data prepared
 
       const isEditMode = (route.params as any)?.mode === 'edit';
       const treatmentId = (route.params as any)?.treatmentId ? String((route.params as any).treatmentId) : undefined;
 
       if (isEditMode && treatmentId) {
-        console.log('[AddTreatment] Modo edição - atualizando tratamento:', treatmentId);
+        // Edit mode - updating treatment
         await updateTreatment(treatmentId, treatmentData);
         Alert.alert('Sucesso! 🎉', 'Tratamento atualizado com sucesso!', [
           {
             text: 'OK',
             onPress: () => {
               try {
-                console.log('[AddTreatment] Navegando de volta após atualização...');
+                // Navigating back after update
                 if (navigation && typeof navigation.goBack === 'function') {
                   navigation.goBack();
                 } else {
-                  console.log('[AddTreatment] Navigation não disponível, permanecendo na tela');
+                  // Navigation not available
                 }
               } catch (navError) {
-                console.error('[AddTreatment] Erro na navegação:', navError);
+                // Navigation error
               }
             }
           }
         ]);
       } else {
-        console.log('[AddTreatment] Modo criação - adicionando novo tratamento');
+        // Create mode - adding new treatment
         const newTreatmentId = await addTreatment(treatmentData);
-        console.log('[AddTreatment] Tratamento criado com ID:', newTreatmentId);
+        // Treatment created
         Alert.alert('Sucesso! 🎉', 'Tratamento adicionado com sucesso!', [
           {
             text: 'OK',
@@ -258,28 +266,23 @@ export default function AddTreatmentScreen() {
               try {
                 // Limpar o formulário após salvar com sucesso
                 resetForm();
-                console.log('[AddTreatment] Formulário limpo após criação');
+                // Form cleared after creation
                 
-                console.log('[AddTreatment] Navegando de volta após criação...');
+                // Navigating back after creation
                 if (navigation && typeof navigation.goBack === 'function') {
                   navigation.goBack();
                 } else {
-                  console.log('[AddTreatment] Navigation não disponível, permanecendo na tela');
+                  // Navigation not available
                 }
               } catch (navError) {
-                console.error('[AddTreatment] Erro na navegação:', navError);
+                // Navigation error
               }
             }
           }
         ]);
       }
     } catch (error: any) {
-      console.error('[AddTreatment] Falha ao salvar tratamento:', error);
-      console.error('[AddTreatment] Erro detalhado:', {
-        message: error?.message,
-        code: error?.code,
-        stack: error?.stack
-      });
+      // Failed to save treatment
       
       const isEditMode = (route.params as any)?.mode === 'edit';
       let errorMessage = `Não foi possível ${isEditMode ? 'atualizar' : 'salvar'} o tratamento.`;
@@ -403,7 +406,7 @@ export default function AddTreatmentScreen() {
                       const info = await fetchMedicationInfo(formData.medication.trim());
                       setMedicationInfo(info);
                     } catch (error) {
-                      console.error('[AddTreatment] Erro ao buscar informações do medicamento:', error);
+                      // Error fetching medication info
                       setMedicationInfo('Não foi possível obter informações sobre este medicamento no momento. Tente novamente mais tarde.');
                     } finally {
                       setLoadingMedicationInfo(false);
@@ -659,7 +662,7 @@ export default function AddTreatmentScreen() {
                     navigation.goBack();
                   }
                 } catch (navError) {
-                  console.error('[AddTreatment] Erro na navegação do cancelar:', navError);
+                  // Cancel navigation error
                 }
               }}
               activeOpacity={0.8}

@@ -14,7 +14,7 @@ const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER || functions.config().email?.user || 'personalmedicare@gmail.com',
-    pass: process.env.EMAIL_PASSWORD || functions.config().email?.password || 'your_app_password_here'
+    pass: process.env.EMAIL_PASSWORD || functions.config().email?.password || 'CONFIGURE_GMAIL_APP_PASSWORD'
   }
 });
 

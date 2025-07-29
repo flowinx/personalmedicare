@@ -267,7 +267,7 @@ export default function LoginScreen() {
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={['#A78BFA', '#8B5CF6']}
+                colors={['#b081ee', '#8B5CF6']}
                 style={styles.signInButtonGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     height: 240,
     paddingTop: 40,
     paddingHorizontal: 20,
-    backgroundColor: '#A78BFA',
+    backgroundColor: '#b081ee',
     justifyContent: 'space-between',
   },
   headerTop: {
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
        content: {
     flex: 1,
     paddingHorizontal: 15,
-    backgroundColor: '#A78BFA',
+    backgroundColor: '#b081ee',
     justifyContent: 'flex-start',
     paddingTop: 10,
   },
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   signupLink: {
-    color: '#A78BFA',
+    color: '#b081ee',
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -588,4 +588,4 @@ const styles = StyleSheet.create({
     borderColor: '#FF6B6B',
     borderWidth: 1.5,
   },
-}); 
+});

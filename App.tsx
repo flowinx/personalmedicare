@@ -4,10 +4,11 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CustomDrawerContent from './components/CustomDrawerContent';
+import AnimatedSplashScreen from './components/AnimatedSplashScreen';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -341,6 +342,7 @@ export default function App() {
     'Inter': require('./assets/fonts/Inter-Regular.ttf'),
     'Inter-Bold': require('./assets/fonts/Inter-Bold.ttf'),
   });
+  const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
 
   useEffect(() => {
     if (error) throw error;
@@ -351,6 +353,10 @@ export default function App() {
       SplashScreen.hideAsync();
     }
   }, [loaded]);
+
+  const handleSplashFinish = () => {
+    setShowAnimatedSplash(false);
+  };
 
   // Inicializar Firebase (sem dependência de autenticação)
   useEffect(() => {
@@ -369,6 +375,10 @@ export default function App() {
 
   if (!loaded) {
     return null;
+  }
+
+  if (showAnimatedSplash) {
+    return <AnimatedSplashScreen onAnimationFinish={handleSplashFinish} />;
   }
 
   return (

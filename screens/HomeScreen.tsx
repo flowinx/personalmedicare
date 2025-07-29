@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useProfile } from '../contexts/ProfileContext';
 import { useEntranceAnimation } from '../utils/animations';
 import { getAllMembers, getAllTreatments, Member, Treatment } from '../services/firebase';
-import { askGeminiChat } from '../services/gemini';
+import { askGroqChat } from '../services/groq';
 
 interface HomeScreenProps {
   navigation?: any;
@@ -58,20 +58,20 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   useFocusEffect(
     useCallback(() => {
-      console.log('HomeScreen: useFocusEffect triggered - reloading data');
+      // Reloading data on focus
       loadData();
     }, [])
   );
 
   const loadData = async () => {
     try {
-      console.log('HomeScreen: Loading data...');
+      // Loading data
       const [allMembers, allTreatments] = await Promise.all([
         getAllMembers(),
         getAllTreatments()
       ]);
 
-      console.log('HomeScreen: Loaded', allMembers.length, 'members and', allTreatments.length, 'treatments');
+      // Data loaded successfully
       setMembers(allMembers);
       setTreatments(allTreatments);
 
@@ -79,7 +79,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       const todaySchedule = generateTodaysSchedule(allTreatments, allMembers);
       setTodaysSchedule(todaySchedule);
     } catch (error) {
-      console.error('Error loading data:', error);
+      // Error loading data
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -237,7 +237,7 @@ PERGUNTA DO USUÁRIO: ${userMessage}
 
 Responda de forma amigável e responsável, sempre lembrando da importância da consulta médica para decisões sobre medicamentos.`;
 
-      const aiResponse = await askGeminiChat(contextualMessage);
+      const aiResponse = await askGroqChat(contextualMessage);
 
       // Adicionar resposta da IA
       const aiMessage = {
@@ -249,7 +249,7 @@ Responda de forma amigável e responsável, sempre lembrando da importância da 
 
       setChatMessages(prev => [...prev, aiMessage]);
     } catch (error) {
-      console.error('Erro no chat:', error);
+      // Chat error
 
       // Mensagem de erro amigável
       const errorMessage = {

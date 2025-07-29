@@ -47,23 +47,23 @@ export default function ContactScreen({ navigation }: ContactScreenProps) {
   const handleEmailContact = async () => {
     const subject = encodeURIComponent('Contato - Personal Medicare');
     const body = encodeURIComponent('Olá,\n\nEstou entrando em contato sobre o Personal Medicare.\n\n');
-    const emailUrl = `mailto:contato@personalmedicare.com?subject=${subject}&body=${body}`;
+    const emailUrl = `mailto:contato@personalmedicare.flowinx.com?subject=${subject}&body=${body}`;
     
     try {
       const canOpen = await Linking.canOpenURL(emailUrl);
       if (canOpen) {
         await Linking.openURL(emailUrl);
       } else {
-        Alert.alert('Email', 'contato@personalmedicare.com');
+        Alert.alert('Email', 'contato@personalmedicare.flowinx.com');
       }
     } catch (error) {
-      Alert.alert('Email', 'contato@personalmedicare.com');
+      Alert.alert('Email', 'contato@personalmedicare.flowinx.com');
     }
   };
 
   const handleWhatsAppContact = async () => {
     const message = encodeURIComponent('Olá! Preciso de ajuda com o Personal Medicare.');
-    const whatsappUrl = `whatsapp://send?phone=5511999999999&text=${message}`;
+    const whatsappUrl = `https://wa.me/5519960000431?text=${message}`;
     
     try {
       const canOpen = await Linking.canOpenURL(whatsappUrl);
@@ -82,32 +82,32 @@ export default function ContactScreen({ navigation }: ContactScreenProps) {
   };
 
   const handlePhoneContact = async () => {
-    const phoneUrl = 'tel:+5511999999999';
+    const phoneUrl = 'tel:+5519960000431';
     
     try {
       const canOpen = await Linking.canOpenURL(phoneUrl);
       if (canOpen) {
         await Linking.openURL(phoneUrl);
       } else {
-        Alert.alert('Telefone', '+55 (11) 99999-9999');
+        Alert.alert('Telefone', '+55 (19) 99600-0043');
       }
     } catch (error) {
-      Alert.alert('Telefone', '+55 (11) 99999-9999');
+      Alert.alert('Telefone', '+55 (19) 99600-0043');
     }
   };
 
   const handleWebsiteContact = async () => {
-    const websiteUrl = 'https://personalmedicare.com/contato';
+    const websiteUrl = 'https://personalmedicare.flowinx.com';
     
     try {
       const canOpen = await Linking.canOpenURL(websiteUrl);
       if (canOpen) {
         await Linking.openURL(websiteUrl);
       } else {
-        Alert.alert('Website', 'personalmedicare.com/contato');
+        Alert.alert('Website', 'https://personalmedicare.flowinx.com');
       }
     } catch (error) {
-      Alert.alert('Website', 'personalmedicare.com/contato');
+      Alert.alert('Website', 'https://personalmedicare.flowinx.com');
     }
   };
 
@@ -115,7 +115,7 @@ export default function ContactScreen({ navigation }: ContactScreenProps) {
     {
       id: 'email',
       title: 'Email',
-      subtitle: 'contato@personalmedicare.com',
+      subtitle: 'contato@personalmedicare.flowinx.com',
       icon: 'mail',
       action: handleEmailContact,
       color: '#b081ee'
@@ -123,7 +123,7 @@ export default function ContactScreen({ navigation }: ContactScreenProps) {
     {
       id: 'whatsapp',
       title: 'WhatsApp',
-      subtitle: '+55 (11) 99999-9999',
+      subtitle: '+55 (19) 99600-0043',
       icon: 'logo-whatsapp',
       action: handleWhatsAppContact,
       color: '#25D366'
@@ -131,7 +131,7 @@ export default function ContactScreen({ navigation }: ContactScreenProps) {
     {
       id: 'phone',
       title: 'Telefone',
-      subtitle: '+55 (11) 99999-9999',
+      subtitle: '+55 (19) 99600-0043',
       icon: 'call',
       action: handlePhoneContact,
       color: '#FF9500'
@@ -139,7 +139,7 @@ export default function ContactScreen({ navigation }: ContactScreenProps) {
     {
       id: 'website',
       title: 'Website',
-      subtitle: 'personalmedicare.com/contato',
+      subtitle: 'https://personalmedicare.flowinx.com',
       icon: 'globe',
       action: handleWebsiteContact,
       color: '#34C759'
@@ -205,7 +205,7 @@ Enviado via Personal Medicare App
 Responda diretamente para: ${senderEmail.trim()}
       `);
 
-      const emailUrl = `mailto:flowinxcorp@gmail.com?subject=${emailSubject}&body=${emailBody}`;
+      const emailUrl = `mailto:contato@personalmedicare.flowinx.com?subject=${emailSubject}&body=${emailBody}`;
       
       // Tentar abrir cliente de email
       const canOpen = await Linking.canOpenURL(emailUrl);
@@ -216,7 +216,7 @@ Responda diretamente para: ${senderEmail.trim()}
         setTimeout(() => {
           Alert.alert(
             'Cliente de Email Aberto! 📧',
-            `Olá ${senderName}!\n\nO cliente de email foi aberto com sua mensagem pré-preenchida para flowinxcorp@gmail.com.\n\nApós enviar o email, nossa equipe responderá em até 24 horas no email ${senderEmail}.\n\nObrigado por usar o Personal Medicare! 💊`,
+            `Olá ${senderName}!\n\nO cliente de email foi aberto com sua mensagem pré-preenchida para contato@personalmedicare.flowinx.com.\n\nApós enviar o email, nossa equipe responderá em até 24 horas no email ${senderEmail}.\n\nObrigado por usar o Personal Medicare! 💊`,
             [
               {
                 text: 'OK',
@@ -236,11 +236,11 @@ Responda diretamente para: ${senderEmail.trim()}
         // Fallback: Mostrar informações para contato manual
         Alert.alert(
           'Contato Manual 📞',
-          `Cliente de email não disponível.\n\nEnvie sua mensagem manualmente para:\n\n📧 flowinxcorp@gmail.com\n\nAssunto: [Personal Medicare] ${selectedSubject}\n\nIncluir:\n• Nome: ${senderName}\n• Email: ${senderEmail}\n• Mensagem: ${message.substring(0, 50)}...`,
+          `Cliente de email não disponível.\n\nEnvie sua mensagem manualmente para:\n\n📧 contato@personalmedicare.flowinx.com\n\nAssunto: [Personal Medicare] ${selectedSubject}\n\nIncluir:\n• Nome: ${senderName}\n• Email: ${senderEmail}\n• Mensagem: ${message.substring(0, 50)}...`,
           [
             { text: 'Copiar Email', onPress: () => {
               // Em produção, usar Clipboard API
-              Alert.alert('Email', 'flowinxcorp@gmail.com');
+              Alert.alert('Email', 'contato@personalmedicare.flowinx.com');
             }},
             { text: 'OK', onPress: () => {
               setSenderName('');
@@ -257,7 +257,7 @@ Responda diretamente para: ${senderEmail.trim()}
       
       Alert.alert(
         'Erro no Envio ❌',
-        `Não foi possível abrir o cliente de email.\n\nEntre em contato diretamente:\n📧 flowinxcorp@gmail.com\n\nAssunto: [Personal Medicare] ${selectedSubject}`,
+        `Não foi possível abrir o cliente de email.\n\nEntre em contato diretamente:\n📧 contato@personalmedicare.flowinx.com\n\nAssunto: [Personal Medicare] ${selectedSubject}`,
         [{ text: 'OK' }]
       );
     } finally {

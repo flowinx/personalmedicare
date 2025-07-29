@@ -44,21 +44,32 @@ export default function ReportsScreen({ navigation, route }: ReportsScreenProps)
 
   useFocusEffect(
     React.useCallback(() => {
+      console.log('ReportsScreen: Loading data for memberId:', route?.params?.memberId);
       loadReportData().then(() => {
         if (route?.params?.memberId) {
+          console.log('ReportsScreen: Generating dossier for memberId:', route?.params?.memberId);
           generateMemberDossier();
         }
       });
-    }, [selectedPeriod])
+    }, [selectedPeriod, route?.params?.memberId])
   );
 
   const generateMemberDossier = async () => {
-    if (!route?.params?.memberId || memberReports.length === 0) return;
+    if (!route?.params?.memberId || memberReports.length === 0) {
+      return;
+    }
     
     setLoadingDossier(true);
     try {
-      const member = memberReports[0]?.member;
-      const treatments = memberReports[0]?.treatments || [];
+      // Find the specific member by ID instead of assuming it's the first one
+      const memberReport = memberReports.find(report => report.member.id === route?.params?.memberId);
+      if (!memberReport) {
+        setMedicalDossier('Membro não encontrado para gerar o dossiê.');
+        return;
+      }
+      
+      const member = memberReport.member;
+      const treatments = memberReport.treatments || [];
       
       // Calculate age
       const calculateAge = (dob: string) => {
@@ -93,12 +104,16 @@ export default function ReportsScreen({ navigation, route }: ReportsScreenProps)
         })),
         notes: member?.notes,
       };
-
+      
       const dossier = await generateMedicalDossier(memberData);
       setMedicalDossier(dossier);
     } catch (error) {
-      console.error('Erro ao gerar dossiê médico:', error);
-      setMedicalDossier('Não foi possível gerar o dossiê médico no momento. Tente novamente mais tarde.');
+      console.error('Erro ao gerar dossiê:', error);
+      if (error instanceof Error) {
+        setMedicalDossier(`Erro ao gerar dossiê médico: ${error.message}`);
+      } else {
+        setMedicalDossier('Erro desconhecido ao gerar dossiê médico.');
+      }
     } finally {
       setLoadingDossier(false);
     }
@@ -120,6 +135,15 @@ export default function ReportsScreen({ navigation, route }: ReportsScreenProps)
       const filteredTreatments = route?.params?.memberId
         ? treatments.filter(t => t.member_id === route.params?.memberId)
         : treatments;
+
+      console.log('ReportsScreen: Total members:', members.length);
+      console.log('ReportsScreen: Filtered members:', filteredMembers.length);
+      console.log('ReportsScreen: Total treatments:', treatments.length);
+      console.log('ReportsScreen: Filtered treatments:', filteredTreatments.length);
+      if (route?.params?.memberId) {
+        console.log('ReportsScreen: Looking for member with ID:', route.params.memberId);
+        console.log('ReportsScreen: Found member:', filteredMembers[0]?.name || 'Not found');
+      }
 
       // Update statistics for specific member if filtered
       const memberStats = route?.params?.memberId ? {
@@ -193,7 +217,14 @@ export default function ReportsScreen({ navigation, route }: ReportsScreenProps)
   const OverviewCard = () => {
     // If viewing specific member, show member profile card
     if (route?.params?.memberId && memberReports.length > 0) {
-      const member = memberReports[0]?.member;
+      // Find the specific member by ID instead of assuming it's the first one
+      const memberReport = memberReports.find(report => report.member.id === route?.params?.memberId);
+      if (!memberReport) {
+        console.error('Member not found in reports for overview:', route?.params?.memberId);
+        return null;
+      }
+      
+      const member = memberReport.member;
       
       const calculateAge = (dob: string): string => {
         if (!dob || dob.trim() === '') {

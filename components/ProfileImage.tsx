@@ -22,12 +22,12 @@ export function ProfileImage({
   const isValidUri = uri && uri.trim() !== '' && uri !== 'null' && uri !== 'undefined';
 
   const handleImageError = () => {
-    console.log('Image failed to load:', uri);
+    // Image failed to load
     setImageError(true);
   };
 
   const handleImageLoad = () => {
-    console.log('Image loaded successfully:', uri);
+    // Image loaded successfully
     setImageError(false);
   };
 
@@ -70,4 +70,4 @@ export function ProfileImage({
       onLoad={handleImageLoad}
     />
   );
-} 
+}

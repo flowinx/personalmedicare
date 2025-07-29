@@ -15,7 +15,7 @@ const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER || ((_a = functions.config().email) === null || _a === void 0 ? void 0 : _a.user) || 'personalmedicare@gmail.com',
-        pass: process.env.EMAIL_PASSWORD || ((_b = functions.config().email) === null || _b === void 0 ? void 0 : _b.password) || 'your_app_password_here'
+        pass: process.env.EMAIL_PASSWORD || ((_b = functions.config().email) === null || _b === void 0 ? void 0 : _b.password) || 'CONFIGURE_GMAIL_APP_PASSWORD'
     }
 });
 exports.sendContactMessage = functions.https.onCall(async (data, context) => {

@@ -5,8 +5,8 @@ export const GeminiConfig = {
   API_KEY: GEMINI_API_KEY,
   
   // URL base da API do Gemini
-  BASE_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+  BASE_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent',
   
   // Modelo a ser usado
-  MODEL: 'gemini-2.0-flash',
+  MODEL: 'gemini-1.5-pro',
 }; 
