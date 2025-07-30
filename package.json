@@ -58,6 +58,7 @@
     "firebase-functions": "^6.4.0",
     "nodemailer": "^7.0.5",
     "pdfjs-dist": "^5.3.31",
+    "puppeteer": "^24.15.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.5",
