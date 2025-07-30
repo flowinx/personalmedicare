@@ -47,17 +47,17 @@ export default function ContactScreen({ navigation }: ContactScreenProps) {
   const handleEmailContact = async () => {
     const subject = encodeURIComponent('Contato - Personal Medicare');
     const body = encodeURIComponent('Olá,\n\nEstou entrando em contato sobre o Personal Medicare.\n\n');
-    const emailUrl = `mailto:contato@personalmedicare.flowinx.com?subject=${subject}&body=${body}`;
+    const emailUrl = `mailto:suporte@personalmedicare.flowinx.com?subject=${subject}&body=${body}`;
     
     try {
       const canOpen = await Linking.canOpenURL(emailUrl);
       if (canOpen) {
         await Linking.openURL(emailUrl);
       } else {
-        Alert.alert('Email', 'contato@personalmedicare.flowinx.com');
+        Alert.alert('Email', 'suporte@personalmedicare.flowinx.com');
       }
     } catch (error) {
-      Alert.alert('Email', 'contato@personalmedicare.flowinx.com');
+      Alert.alert('Email', 'suporte@personalmedicare.flowinx.com');
     }
   };
 
@@ -115,7 +115,7 @@ export default function ContactScreen({ navigation }: ContactScreenProps) {
     {
       id: 'email',
       title: 'Email',
-      subtitle: 'contato@personalmedicare.flowinx.com',
+      subtitle: 'suporte@personalmedicare.flowinx.com',
       icon: 'mail',
       action: handleEmailContact,
       color: '#b081ee'
@@ -205,7 +205,7 @@ Enviado via Personal Medicare App
 Responda diretamente para: ${senderEmail.trim()}
       `);
 
-      const emailUrl = `mailto:contato@personalmedicare.flowinx.com?subject=${emailSubject}&body=${emailBody}`;
+      const emailUrl = `mailto:suporte@personalmedicare.flowinx.com?subject=${emailSubject}&body=${emailBody}`;
       
       // Tentar abrir cliente de email
       const canOpen = await Linking.canOpenURL(emailUrl);
@@ -240,7 +240,7 @@ Responda diretamente para: ${senderEmail.trim()}
           [
             { text: 'Copiar Email', onPress: () => {
               // Em produção, usar Clipboard API
-              Alert.alert('Email', 'contato@personalmedicare.flowinx.com');
+              Alert.alert('Email', 'suporte@personalmedicare.flowinx.com');
             }},
             { text: 'OK', onPress: () => {
               setSenderName('');

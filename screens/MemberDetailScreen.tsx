@@ -4,14 +4,15 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { getMemberById, deleteMember } from '../services/firebase';
 import { Member } from '../types';
+import { OptimizedImage } from '../components/OptimizedImage';
 
 interface MemberDetailScreenProps {
   navigation: any;
@@ -85,9 +86,11 @@ export default function MemberDetailScreen({ navigation, route }: MemberDetailSc
     }
   };
 
-  useEffect(() => {
-    loadMember();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadMember();
+    }, [])
+  );
 
   const loadMember = async () => {
     try {
@@ -126,13 +129,14 @@ export default function MemberDetailScreen({ navigation, route }: MemberDetailSc
     }
   };
 
-  const handleDeleteMember = async () => {
-    if (!member) {
-      console.log('ERRO: Membro não encontrado!');
-      return;
+  const handleWeightTracking = () => {
+    if (member) {
+      navigation.navigate('WeightTracking', { memberId: member.id });
     }
-    
-    console.log('MemberDetailScreen: handleDeleteMember called for member:', member.id, member.name);
+  };
+
+  const handleDeleteMember = async () => {
+    if (!member) return;
     
     Alert.alert(
       'Excluir Membro',
@@ -147,13 +151,9 @@ export default function MemberDetailScreen({ navigation, route }: MemberDetailSc
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('MemberDetailScreen: Starting deletion process for member:', member.id);
               await deleteMember(member.id);
-              console.log('MemberDetailScreen: Member deleted successfully:', member.id);
-              console.log('MemberDetailScreen: Navigating back to HomeScreen');
               navigation.goBack();
             } catch (error) {
-              console.error('MemberDetailScreen: Error deleting member:', error);
               Alert.alert('Erro', 'Não foi possível excluir o membro. Tente novamente.');
             }
           },
@@ -186,7 +186,11 @@ export default function MemberDetailScreen({ navigation, route }: MemberDetailSc
       <View style={styles.heroSection}>
         <View style={styles.backgroundImageContainer}>
           {member.avatar_uri ? (
-            <Image source={{ uri: member.avatar_uri }} style={styles.backgroundImage} />
+            <OptimizedImage 
+              uri={member.avatar_uri} 
+              style={styles.backgroundImage}
+              fallbackIcon="person"
+            />
           ) : (
             <View style={styles.backgroundGradient} />
           )}
@@ -268,6 +272,16 @@ export default function MemberDetailScreen({ navigation, route }: MemberDetailSc
             </View>
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Dossiê</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#999" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionButton} onPress={handleWeightTracking}>
+            <View style={styles.actionIcon}>
+              <Ionicons name="fitness" size={20} color="#b081ee" />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Acompanhamento de Peso</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#999" />
           </TouchableOpacity>

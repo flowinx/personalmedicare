@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useAuth } from '../contexts/AuthContext';
 import { useProfile } from '../contexts/ProfileContext';
 import { updateProfile } from '../services/firebase';
@@ -24,11 +25,12 @@ interface ProfileScreenProps {
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { user } = useAuth();
   const { profile, refreshProfile } = useProfile();
+  const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [statistics, setStatistics] = useState<UserStatistics | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
 
@@ -61,17 +63,35 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
   const handlePickImage = async () => {
     try {
+      console.log('[ProfileScreen] Iniciando seleção de imagem...');
+      
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.5, // Reduzir qualidade para 50%
       });
 
       if (!result.canceled && result.assets[0]) {
-        setAvatarUri(result.assets[0].uri);
+        console.log('[ProfileScreen] Imagem selecionada, iniciando compressão...');
+        
+        // Comprimir e redimensionar imagem
+        const manipulatedImage = await ImageManipulator.manipulateAsync(
+          result.assets[0].uri,
+          [
+            { resize: { width: 800, height: 800 } }, // Redimensionar para 800x800
+          ],
+          {
+            compress: 0.7, // Compressão adicional
+            format: ImageManipulator.SaveFormat.JPEG,
+          }
+        );
+        
+        console.log('[ProfileScreen] Imagem comprimida com sucesso');
+        setAvatarUri(manipulatedImage.uri);
       }
     } catch (error) {
+      console.error('[ProfileScreen] Erro ao selecionar/comprimir imagem:', error);
       Alert.alert('Erro', 'Erro ao selecionar imagem');
     }
   };
@@ -88,20 +108,26 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     }
 
     setLoading(true);
+    if (avatarUri) {
+      setUploadingImage(true);
+    }
+    
     try {
+      console.log('[ProfileScreen] Iniciando salvamento do perfil...');
       await updateProfile({
         name: name.trim(),
         email: email.trim(),
         avatar_uri: avatarUri,
       });
-
       await refreshProfile();
       setEditing(false);
       Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
-    } catch (error: any) {
-      Alert.alert('Erro', 'Erro ao atualizar perfil: ' + error.message);
+    } catch (error) {
+      console.error('Erro ao salvar perfil:', error);
+      Alert.alert('Erro', 'Erro ao salvar perfil');
     } finally {
       setLoading(false);
+      setUploadingImage(false);
     }
   };
 
@@ -215,7 +241,12 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator color="#fff" size="small" />
+                    <Text style={styles.loadingText}>
+                      {uploadingImage ? 'Salvando imagem...' : 'Salvando...'}
+                    </Text>
+                  </View>
                 ) : (
                   <Text style={styles.saveButtonText}>Salvar</Text>
                 )}
@@ -473,6 +504,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   statsSection: {
     backgroundColor: '#fff',

@@ -42,6 +42,7 @@ import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import TermsOfServiceScreen from './screens/TermsOfServiceScreen';
 import DataCollectionScreen from './screens/DataCollectionScreen';
 import FarmacinhaScreen from './screens/FarmacinhaScreen';
+import WeightTrackingScreen from './screens/WeightTrackingScreen';
 
 type AuthStackParamList = {
   Login: undefined;
@@ -51,6 +52,7 @@ type HomeStackParamList = {
   HomeMain: undefined;
   MemberDetail: { id: string };
   EditMember: { memberId: string };
+  WeightTracking: { memberId: string };
 };
 
 type TreatmentsStackParamList = {
@@ -109,6 +111,11 @@ function HomeStack() {
       <HomeStackNavigator.Screen
         name="EditMember"
         component={EditMemberScreen}
+        options={{ headerShown: false }}
+      />
+      <HomeStackNavigator.Screen
+        name="WeightTracking"
+        component={WeightTrackingScreen}
         options={{ headerShown: false }}
       />
     </HomeStackNavigator.Navigator>

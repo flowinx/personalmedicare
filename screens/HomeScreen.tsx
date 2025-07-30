@@ -7,6 +7,8 @@ import { useProfile } from '../contexts/ProfileContext';
 import { useEntranceAnimation } from '../utils/animations';
 import { getAllMembers, getAllTreatments, Member, Treatment } from '../services/firebase';
 import { askGroqChat } from '../services/groq';
+import { OptimizedImage } from '../components/OptimizedImage';
+import { useImagePreloader } from '../hooks/useImagePreloader';
 
 interface HomeScreenProps {
   navigation?: any;
@@ -21,6 +23,12 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [todaysSchedule, setTodaysSchedule] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Cache simples para logs de hoje
+  const [todayLogsCache, setTodayLogsCache] = useState<{date: string, logs: any[]}>({date: '', logs: []});
+  
+  // Pré-carregar imagens dos membros
+  useImagePreloader(members.map(member => member.avatar_uri));
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ id: string, text: string, isUser: boolean, timestamp: Date }>>([]);
@@ -75,8 +83,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       setMembers(allMembers);
       setTreatments(allTreatments);
 
-      // Generate today's schedule
-      const todaySchedule = generateTodaysSchedule(allTreatments, allMembers);
+      // Generate today's schedule (now async)
+      const todaySchedule = await generateTodaysSchedule(allTreatments, allMembers);
       setTodaysSchedule(todaySchedule);
     } catch (error) {
       // Error loading data
@@ -91,9 +99,38 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     loadData();
   };
 
-  const generateTodaysSchedule = (treatments: Treatment[], members: Member[]) => {
+  const generateTodaysSchedule = async (treatments: Treatment[], members: Member[]) => {
     const today = new Date();
     const schedule: any[] = [];
+
+    // Buscar logs de medicamentos de hoje (com cache)
+    const todayString = today.toISOString().split('T')[0];
+    let todayLogs: any[] = [];
+    
+    try {
+      // Usar cache se disponível para a mesma data
+      if (todayLogsCache.date === todayString && todayLogsCache.logs.length > 0) {
+        todayLogs = todayLogsCache.logs;
+        if (__DEV__) {
+          console.log(`[HomeScreen] Usando cache: ${todayLogs.length} logs`);
+        }
+      } else {
+        // Buscar do servidor
+        const { getMedicationLogsByDate } = await import('../services/firebase');
+        todayLogs = await getMedicationLogsByDate(todayString);
+        
+        // Atualizar cache
+        setTodayLogsCache({date: todayString, logs: todayLogs});
+        
+        if (__DEV__) {
+          console.log(`[HomeScreen] Logs do servidor: ${todayLogs.length}`);
+        }
+      }
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('Erro ao buscar logs:', error);
+      }
+    }
 
     treatments.forEach(treatment => {
       if (treatment.status !== 'ativo') return;
@@ -121,15 +158,27 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
       // Generate times for today
       while (currentTime <= todayEnd) {
+        const scheduleId = `${treatment.id}_${currentTime.getTime()}`;
+        
+        // Verificar se existe log para este horário específico
+        const existingLog = todayLogs.find(log => {
+          const timeDiff = Math.abs(new Date(log.scheduled_time).getTime() - currentTime.getTime());
+          return log.treatment_id === treatment.id && timeDiff < 300000; // 5 minutos de tolerância
+        });
+
+        const status = existingLog ? 'tomado' : 'pendente';
+
         schedule.push({
-          id: `${treatment.id}_${currentTime.getTime()}`,
+          id: scheduleId,
           scheduled_time: currentTime.toISOString(),
-          status: 'pendente',
+          status: status,
           treatment_id: treatment.id,
           medication: treatment.medication,
           dosage: treatment.dosage,
           member_name: member.name,
           member_avatar_uri: member.avatar_uri || '',
+          member_id: member.id,
+          log_id: existingLog?.id || null,
         });
 
         currentTime = new Date(currentTime.getTime() + (frequencyHours * 60 * 60 * 1000));
@@ -176,13 +225,75 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     navigation.navigate('Settings');
   };
 
-  const handleMarkAsDone = (scheduleId: string) => {
-    setTodaysSchedule(prevSchedule =>
-      prevSchedule.map(item =>
-        item.id === scheduleId ? { ...item, status: 'tomado' } : item
-      )
-    );
-    Alert.alert('Sucesso', 'Medicamento marcado como tomado!');
+  const handleMarkAsDone = async (scheduleId: string) => {
+    try {
+      // Encontrar o item na agenda
+      const scheduleItem = todaysSchedule.find(item => item.id === scheduleId);
+      if (!scheduleItem) {
+        Alert.alert('Erro', 'Item da agenda não encontrado');
+        return;
+      }
+
+      // Se já foi marcado como tomado, não fazer nada
+      if (scheduleItem.status === 'tomado') {
+        Alert.alert('Aviso', 'Este medicamento já foi marcado como tomado');
+        return;
+      }
+
+      // Log apenas em desenvolvimento
+      if (__DEV__) {
+        console.log('[HomeScreen] Marcando medicamento como tomado:', scheduleItem.medication);
+      }
+
+      // Atualizar estado local imediatamente para feedback visual
+      setTodaysSchedule(prevSchedule =>
+        prevSchedule.map(item =>
+          item.id === scheduleId ? { ...item, status: 'tomado' } : item
+        )
+      );
+
+      // Salvar no banco de dados
+      const { markMedicationAsTaken } = await import('../services/firebase');
+      
+      const logId = await markMedicationAsTaken(
+        scheduleItem.treatment_id,
+        scheduleItem.member_id,
+        scheduleItem.medication,
+        scheduleItem.dosage,
+        scheduleItem.scheduled_time
+      );
+
+      // Log apenas em desenvolvimento
+      if (__DEV__) {
+        console.log('[HomeScreen] ✅ Medicamento salvo:', logId);
+      }
+      
+      // Atualizar o item com o log_id
+      setTodaysSchedule(prevSchedule =>
+        prevSchedule.map(item =>
+          item.id === scheduleId ? { ...item, status: 'tomado', log_id: logId } : item
+        )
+      );
+      
+      // Invalidar cache para forçar nova busca na próxima vez
+      setTodayLogsCache({date: '', logs: []});
+
+      Alert.alert('Sucesso', 'Medicamento marcado como tomado!');
+      
+    } catch (error) {
+      if (__DEV__) {
+        console.error('[HomeScreen] ❌ Erro ao marcar medicamento:', error);
+      }
+      
+      // Reverter estado local em caso de erro
+      setTodaysSchedule(prevSchedule =>
+        prevSchedule.map(item =>
+          item.id === scheduleId ? { ...item, status: 'pendente' } : item
+        )
+      );
+      
+      Alert.alert('Erro', 'Não foi possível marcar o medicamento como tomado. Tente novamente.');
+    }
   };
 
   const handleNotificationPress = () => {
@@ -403,7 +514,11 @@ Responda de forma amigável e responsável, sempre lembrando da importância da 
                     {/* Avatar do Membro */}
                     <View style={styles.scheduleMemberAvatar}>
                       {item.member_avatar_uri ? (
-                        <Image source={{ uri: item.member_avatar_uri }} style={styles.scheduleAvatar} />
+                        <OptimizedImage 
+                          uri={item.member_avatar_uri} 
+                          style={styles.scheduleAvatar}
+                          fallbackIcon="person"
+                        />
                       ) : (
                         <View style={styles.scheduleAvatarPlaceholder}>
                           <FontAwesome name="user" size={12} color="#b081ee" />
@@ -487,7 +602,11 @@ Responda de forma amigável e responsável, sempre lembrando da importância da 
                   onPress={() => handleMemberPress(member)}
                 >
                   {member.avatar_uri ? (
-                    <Image source={{ uri: member.avatar_uri }} style={styles.memberAvatar} />
+                    <OptimizedImage 
+                      uri={member.avatar_uri} 
+                      style={styles.memberAvatar}
+                      fallbackIcon="person"
+                    />
                   ) : (
                     <View style={styles.memberAvatarPlaceholder}>
                       <FontAwesome name="user" size={24} color="#b081ee" />
@@ -524,7 +643,11 @@ Responda de forma amigável e responsável, sempre lembrando da importância da 
                   {/* Avatar do Membro */}
                   <View style={styles.overdueAvatar}>
                     {item.member_avatar_uri ? (
-                      <Image source={{ uri: item.member_avatar_uri }} style={styles.overdueAvatarImage} />
+                      <OptimizedImage 
+                        uri={item.member_avatar_uri} 
+                        style={styles.overdueAvatarImage}
+                        fallbackIcon="person"
+                      />
                     ) : (
                       <View style={styles.overdueAvatarPlaceholder}>
                         <FontAwesome name="user" size={16} color="#ff6b6b" />

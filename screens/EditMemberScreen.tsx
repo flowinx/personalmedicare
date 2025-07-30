@@ -131,7 +131,10 @@ export default function EditMemberScreen({ navigation, route }: EditMemberScreen
         [
           {
             text: 'OK',
-            onPress: () => navigation.goBack(),
+            onPress: () => {
+              // Voltar para a tela anterior (MemberDetail)
+              navigation.goBack();
+            },
           },
         ]
       );

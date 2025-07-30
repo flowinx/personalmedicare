@@ -39,7 +39,7 @@ const APP_INFO: AppInfo = {
   buildNumber: '2025.07.25',
   description: 'Aplicativo para gerenciamento de cuidados médicos familiares, tratamentos e lembretes de medicamentos.',
   developer: 'Personal Medicare Team',
-  email: 'contato@personalmedicare.com',
+  email: 'suporte@personalmedicare.flowinx.com',
   website: 'https://personalmedicare.com',
   releaseDate: '25 de Julho de 2025'
 };

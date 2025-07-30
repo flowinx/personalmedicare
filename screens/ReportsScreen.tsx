@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAllMembers, getAllTreatments, Member, Treatment } from '../services/firebase';
 import StatisticsService, { UserStatistics } from '../services/statistics';
-import { generateMedicalDossier } from '../services/gemini';
+import { generateMedicalDossier } from '../services/groq';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -41,6 +41,37 @@ export default function ReportsScreen({ navigation, route }: ReportsScreenProps)
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'all'>('month');
   const [medicalDossier, setMedicalDossier] = useState<string>('');
   const [loadingDossier, setLoadingDossier] = useState(false);
+
+  // Função para formatar o texto removendo tags markdown
+  const formatDossierText = (text: string): string => {
+    if (!text) return text;
+    
+    return text
+      // Remove tags de cabeçalho (# ## ### etc.)
+      .replace(/^#{1,6}\s+/gm, '')
+      // Remove tags de negrito (**texto** ou __texto__)
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/__(.*?)__/g, '$1')
+      // Remove tags de itálico (*texto* ou _texto_)
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/_(.*?)_/g, '$1')
+      // Remove tags de código (`código`)
+      .replace(/`(.*?)`/g, '$1')
+      // Remove blocos de código (```código```)
+      .replace(/```[\s\S]*?```/g, '')
+      // Remove links [texto](url)
+      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+      // Remove listas (* item ou - item)
+      .replace(/^[\s]*[\*\-]\s+/gm, '• ')
+      // Remove listas numeradas (1. item)
+      .replace(/^[\s]*\d+\.\s+/gm, '')
+      // Remove linhas horizontais (--- ou ***)
+      .replace(/^[\s]*[-\*]{3,}[\s]*$/gm, '')
+      // Remove quebras de linha excessivas
+      .replace(/\n{3,}/g, '\n\n')
+      // Remove espaços em branco no início e fim
+      .trim();
+  };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -544,7 +575,7 @@ export default function ReportsScreen({ navigation, route }: ReportsScreenProps)
         ) : (
           <ScrollView style={styles.dossierContent} nestedScrollEnabled={true}>
             <Text style={styles.dossierText}>
-              {medicalDossier || 'Dossiê médico não disponível no momento.'}
+              {formatDossierText(medicalDossier) || 'Dossiê médico não disponível no momento.'}
             </Text>
           </ScrollView>
         )}
